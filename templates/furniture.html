@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% block content %}
+<section style="max-width:1200px;margin:0 auto;padding:2rem 1.25rem;">
+  <div style="margin-bottom:1.5rem;">
+    <h1 style="font-size:2rem;font-weight:800;margin-bottom:0.35rem;background:linear-gradient(135deg,#a78bfa,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Furniture Catalog</h1>
+    <p style="color:#94a3b8;">Browse and book premium furniture</p>
+  </div>
+
+  <div style="display:grid;gap:1rem;margin-bottom:1rem;">
+    <input id="furnitureSearch" type="text" placeholder="Search furniture by name..." style="width:100%;padding:0.85rem 1rem;border-radius:10px;border:1px solid #334155;background:#111827;color:#e2e8f0;">
+    <div id="categoryFilters" style="display:flex;gap:0.65rem;flex-wrap:wrap;"></div>
+  </div>
+
+  <div id="furnitureEmpty" style="display:none;background:#111827;border:1px dashed #334155;border-radius:14px;padding:2rem;text-align:center;color:#94a3b8;">
+    No furniture available. Visit /seed-db first
+  </div>
+
+  <div id="furnitureGrid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;"></div>
+</section>
+
+<div id="confirmModal" style="position:fixed;inset:0;background:rgba(2,6,23,0.75);display:none;align-items:center;justify-content:center;padding:1rem;z-index:1500;">
+  <div style="width:min(460px,100%);background:#111827;border:1px solid #334155;border-radius:14px;padding:1.25rem;">
+    <h3 style="margin-bottom:0.7rem;">Confirm Booking</h3>
+    <p id="confirmText" style="color:#cbd5e1;line-height:1.6;margin-bottom:1rem;"></p>
+    <div style="display:flex;gap:0.65rem;justify-content:flex-end;">
+      <button id="cancelConfirmBtn" style="padding:0.6rem 0.95rem;border:1px solid #334155;border-radius:9px;background:transparent;color:#e2e8f0;cursor:pointer;">Cancel</button>
+      <button id="confirmBookBtn" style="padding:0.6rem 0.95rem;border:none;border-radius:9px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;cursor:pointer;">Confirm Booking</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" style="position:fixed;right:18px;bottom:18px;background:#10b981;color:#052e16;padding:0.75rem 1rem;border-radius:10px;font-weight:700;display:none;z-index:1600;">Furniture booked successfully!</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const categories = ['All', 'Sofa', 'Table', 'Chair', 'Lamp', 'Shelf'];
+let selectedCategory = 'All';
+let allFurniture = [];
+let selectedFurniture = null;
+
+function formatInr(value) {
+  const amount = Number(value || 0);
+  return `Rs. ${amount.toLocaleString('en-IN')}`;
+}
+
+function categoryIcon(category) {
+  const key = String(category || '').toLowerCase();
+  if (key === 'sofa') return 'fa-couch';
+  if (key === 'table') return 'fa-table';
+  if (key === 'chair') return 'fa-chair';
+  if (key === 'lamp') return 'fa-lightbulb';
+  if (key === 'shelf') return 'fa-book-open';
+  return 'fa-cube';
+}
+
+function categoryColor(category) {
+  const key = String(category || '').toLowerCase();
+  if (key === 'sofa') return '#a78bfa';
+  if (key === 'table') return '#22d3ee';
+  if (key === 'chair') return '#34d399';
+  if (key === 'lamp') return '#fbbf24';
+  if (key === 'shelf') return '#fb7185';
+  return '#94a3b8';
+}
+
+function showToast(message, isError=false) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.style.display = 'block';
+  toast.style.background = isError ? '#ef4444' : '#10b981';
+  toast.style.color = isError ? '#fee2e2' : '#052e16';
+  setTimeout(() => {
+    toast.style.display = 'none';
+  }, 2200);
+}
+
+function renderCategoryFilters() {
+  const wrap = document.getElementById('categoryFilters');
+  wrap.innerHTML = categories.map((cat) => {
+    const active = cat === selectedCategory;
+    return `<button data-cat="${cat}" style="padding:0.45rem 0.85rem;border-radius:999px;border:${active ? 'none' : '1px solid #334155'};background:${active ? 'linear-gradient(135deg,#7c3aed,#a855f7)' : '#111827'};color:${active ? '#fff' : '#cbd5e1'};cursor:pointer;">${cat}</button>`;
+  }).join('');
+
+  wrap.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      selectedCategory = btn.dataset.cat;
+      renderCategoryFilters();
+      renderFurniture();
+    });
+  });
+}
+
+function filteredFurniture() {
+  const query = document.getElementById('furnitureSearch').value.trim().toLowerCase();
+  return allFurniture.filter((item) => {
+    const name = String(item.name || '').toLowerCase();
+    const cat = String(item.category || '').toLowerCase();
+    const categoryMatch = selectedCategory === 'All' || cat === selectedCategory.toLowerCase();
+    const nameMatch = !query || name.includes(query);
+    return categoryMatch && nameMatch;
+  });
+}
+
+function openConfirmModal(item) {
+  selectedFurniture = item;
+  document.getElementById('confirmText').textContent = `Book ${item.name} for ${formatInr(item.price)}?`;
+  document.getElementById('confirmModal').style.display = 'flex';
+}
+
+function closeConfirmModal() {
+  selectedFurniture = null;
+  document.getElementById('confirmModal').style.display = 'none';
+}
+
+async function confirmBooking() {
+  if (!selectedFurniture) return;
+  const confirmBtn = document.getElementById('confirmBookBtn');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Booking...';
+  try {
+    const response = await fetch('/book-furniture', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ furniture_id: selectedFurniture.id })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      if (response.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
+      throw new Error(data.error || 'Booking failed');
+    }
+    closeConfirmModal();
+    showToast('Furniture booked successfully!');
+  } catch (error) {
+    showToast(error.message || 'Booking failed', true);
+  } finally {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Confirm Booking';
+  }
+}
+
+function renderFurniture() {
+  const list = filteredFurniture();
+  const grid = document.getElementById('furnitureGrid');
+  const empty = document.getElementById('furnitureEmpty');
+
+  if (!allFurniture.length) {
+    empty.style.display = 'block';
+    grid.innerHTML = '';
+    return;
+  }
+
+  empty.style.display = 'none';
+  if (!list.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;background:#111827;border:1px dashed #334155;border-radius:12px;padding:1.1rem;color:#94a3b8;text-align:center;">No furniture matches your filters.</div>';
+    return;
+  }
+
+  grid.innerHTML = list.map((item) => {
+    const color = categoryColor(item.category);
+    return `
+      <article style="background:#111827;border:1px solid #334155;border-radius:14px;padding:1rem;display:flex;flex-direction:column;gap:0.75rem;">
+        <div style="height:130px;border-radius:10px;background:radial-gradient(circle at top right,${color}33,#0b1220);display:grid;place-items:center;border:1px solid #334155;">
+          <i class="fas ${categoryIcon(item.category)}" style="font-size:2rem;color:${color};"></i>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
+          <strong style="font-size:1rem;">${item.name || 'Furniture Item'}</strong>
+          <span style="padding:0.2rem 0.6rem;border-radius:999px;background:${color}22;border:1px solid ${color}66;color:${color};font-size:0.75rem;font-weight:700;">${String(item.category || '').toUpperCase()}</span>
+        </div>
+        <div style="font-size:1rem;font-weight:700;color:#ddd6fe;">${formatInr(item.price)}</div>
+        <p style="color:#94a3b8;line-height:1.5;min-height:44px;">${item.description || 'No description available.'}</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.55rem;margin-top:auto;">
+          <button class="book-now-btn" data-id="${item.id}" style="padding:0.6rem 0.75rem;border:none;border-radius:9px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;cursor:pointer;font-weight:700;">Book Now</button>
+          <button class="wish-btn" style="padding:0.6rem 0.75rem;border:1px solid #475569;border-radius:9px;background:transparent;color:#e2e8f0;cursor:pointer;">Add to Wishlist</button>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  grid.querySelectorAll('.book-now-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.dataset.id);
+      const item = list.find((x) => Number(x.id) === id);
+      if (item) openConfirmModal(item);
+    });
+  });
+
+  grid.querySelectorAll('.wish-btn').forEach((btn) => {
+    btn.addEventListener('click', () => showToast('Added to wishlist (local only).'));
+  });
+}
+
+async function loadFurniture() {
+  try {
+    const response = await fetch('/get-furniture');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Unable to load furniture');
+    allFurniture = Array.isArray(data) ? data : [];
+    renderFurniture();
+  } catch (error) {
+    allFurniture = [];
+    renderFurniture();
+    showToast(error.message || 'Failed to load furniture', true);
+  }
+}
+
+function updateGridResponsive() {
+  const grid = document.getElementById('furnitureGrid');
+  if (window.innerWidth < 700) grid.style.gridTemplateColumns = '1fr';
+  else if (window.innerWidth < 1024) grid.style.gridTemplateColumns = 'repeat(2,minmax(0,1fr))';
+  else grid.style.gridTemplateColumns = 'repeat(3,minmax(0,1fr))';
+}
+
+document.getElementById('furnitureSearch').addEventListener('input', renderFurniture);
+document.getElementById('cancelConfirmBtn').addEventListener('click', closeConfirmModal);
+document.getElementById('confirmBookBtn').addEventListener('click', confirmBooking);
+document.getElementById('confirmModal').addEventListener('click', (event) => {
+  if (event.target.id === 'confirmModal') closeConfirmModal();
+});
+window.addEventListener('resize', updateGridResponsive);
+
+renderCategoryFilters();
+updateGridResponsive();
+loadFurniture();
+</script>
+{% endblock %}

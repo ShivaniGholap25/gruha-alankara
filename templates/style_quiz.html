@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:860px;margin:0 auto;padding:2rem;">
+  <h1 style="text-align:center;font-size:2rem;font-weight:700;margin-bottom:0.5rem;background:linear-gradient(135deg,#818cf8,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Style Quiz</h1>
+  <p style="text-align:center;color:#94a3b8;margin-bottom:2rem;">Answer 5 quick questions to discover your ideal interior style.</p>
+
+  <div style="background:#1a1a2e;border-radius:12px;padding:0.5rem 1rem;margin-bottom:2rem;border:1px solid #2d3748;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span id="q-label" style="font-size:0.85rem;color:#94a3b8;">Question 1 of 5</span>
+      <span id="q-pct" style="font-size:0.85rem;color:#818cf8;">20%</span>
+    </div>
+    <div style="height:6px;background:#2d3748;border-radius:3px;overflow:hidden;">
+      <div id="progress-bar" style="height:100%;background:linear-gradient(90deg,#7c3aed,#a855f7);border-radius:3px;width:20%;transition:width 0.3s;"></div>
+    </div>
+  </div>
+
+  <div id="quiz-container">
+    <div id="question-box" style="text-align:center;">
+      <h2 id="q-text" style="font-size:1.4rem;font-weight:600;margin-bottom:2rem;color:#e2e8f0;"></h2>
+      <div id="options" style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;"></div>
+    </div>
+  </div>
+
+  <div id="result-box" style="display:none;text-align:center;background:#1a1a2e;border:1px solid #2d3748;border-radius:12px;padding:2rem;">
+    <div style="font-size:4rem;margin-bottom:1rem;">🏠</div>
+    <h2 style="font-size:1.8rem;font-weight:700;margin-bottom:0.5rem;background:linear-gradient(135deg,#818cf8,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Your Style: <span id="result-style"></span></h2>
+    <p id="result-desc" style="color:#94a3b8;margin-bottom:2rem;line-height:1.7;max-width:520px;margin-left:auto;margin-right:auto;"></p>
+    <div id="result-colors" style="display:flex;justify-content:center;gap:12px;margin-bottom:2rem;"></div>
+    <a id="start-designing" href="/dashboard" style="display:inline-flex;align-items:center;gap:8px;padding:0.85rem 2rem;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:1rem;">
+      <i class="fas fa-magic"></i> Start Designing
+    </a>
+  </div>
+</div>
+
+<script>
+const questions = [
+  { q: "What color mood appeals to you most?", opts: ["Neutral and Calm", "Bold and Vibrant", "Dark and Moody", "Light and Airy"], icons: ["🤍", "🌈", "🖤", "☀️"] },
+  { q: "Pick your ideal furniture style", opts: ["Sleek and Modern", "Rustic and Warm", "Classic and Elegant", "Eclectic and Mixed"], icons: ["🔷", "🪵", "🏛️", "🎨"] },
+  { q: "What material do you love most?", opts: ["Natural Wood", "Metal and Glass", "Fabric and Textile", "Stone and Marble"], icons: ["🌿", "✨", "🛋️", "💎"] },
+  { q: "Choose your lighting preference", opts: ["Bright Natural Light", "Warm Ambient Glow", "Dramatic Spotlights", "Soft Diffused Light"], icons: ["☀️", "🕯️", "💡", "🌙"] },
+  { q: "What is your space priority?", opts: ["Minimalism", "Comfort", "Style Statement", "Functionality"], icons: ["⬜", "😊", "💫", "⚙️"] }
+];
+
+const styleMap = {
+  "0000": "Modern Minimalist", "0001": "Scandinavian", "0010": "Contemporary", "0011": "Scandinavian",
+  "0100": "Industrial", "0101": "Bohemian", "0110": "Traditional", "0111": "Bohemian",
+  "1000": "Industrial", "1001": "Bohemian", "1010": "Contemporary", "1011": "Traditional",
+  "1100": "Industrial", "1101": "Bohemian", "1110": "Traditional", "1111": "Bohemian"
+};
+
+const styleDesc = {
+  "Modern Minimalist": "Clean lines, neutral colors, and functional furniture keep your space elegant and clutter-free.",
+  "Scandinavian": "Bright airy spaces with natural materials and cozy textures create a warm and inviting atmosphere.",
+  "Industrial": "Raw finishes, exposed textures, and bold accents define your urban design taste.",
+  "Bohemian": "Layered patterns, rich colors, and expressive decor make your space artistic and personal.",
+  "Traditional": "Classic elegance with timeless details and rich finishes suits your style best.",
+  "Contemporary": "Trend-forward forms and practical styling bring modern comfort to your room."
+};
+
+const styleColors = {
+  "Modern Minimalist": ["#FFFFFF", "#000000", "#808080", "#F5F5F5"],
+  "Scandinavian": ["#F5F0E8", "#2C5F2E", "#D4A373", "#FEFAE0"],
+  "Industrial": ["#2E2E2E", "#5A5A5A", "#8C7B75", "#B0A8A0"],
+  "Bohemian": ["#E76F51", "#2A9D8F", "#E9C46A", "#F4A261"],
+  "Traditional": ["#7A4E2D", "#C9B79C", "#8B0000", "#F5E6CC"],
+  "Contemporary": ["#D9D9D9", "#4A4E69", "#9A8C98", "#F2E9E4"]
+};
+
+let current = 0;
+let answers = [];
+
+function showQuestion(n) {
+  const q = questions[n];
+  document.getElementById("q-text").textContent = q.q;
+  document.getElementById("q-label").textContent = "Question " + (n + 1) + " of 5";
+  const pct = ((n + 1) / 5) * 100;
+  document.getElementById("q-pct").textContent = Math.round(pct) + "%";
+  document.getElementById("progress-bar").style.width = pct + "%";
+  const opts = document.getElementById("options");
+  opts.innerHTML = "";
+  q.opts.forEach((opt, i) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.style.cssText = "background:#16213e;border:2px solid #2d3748;border-radius:12px;padding:1.5rem 1rem;cursor:pointer;transition:all 0.2s;text-align:center;color:#e2e8f0;";
+    card.innerHTML = '<div style="font-size:2rem;margin-bottom:0.5rem;">' + q.icons[i] + "</div><p style='font-weight:600;font-size:0.95rem;margin:0;'>" + opt + "</p>";
+    card.onmouseover = () => (card.style.borderColor = "#7c3aed");
+    card.onmouseout = () => (card.style.borderColor = "#2d3748");
+    card.onclick = () => answer(i);
+    opts.appendChild(card);
+  });
+}
+
+function answer(i) {
+  answers.push(i);
+  if (current < 4) {
+    current += 1;
+    showQuestion(current);
+  } else {
+    showResult();
+  }
+}
+
+function showResult() {
+  const key = answers.slice(0, 4).map((a) => (a > 1 ? "1" : "0")).join("");
+  const style = styleMap[key] || "Modern Minimalist";
+  document.getElementById("quiz-container").style.display = "none";
+  document.getElementById("result-box").style.display = "block";
+  document.getElementById("result-style").textContent = style;
+  document.getElementById("result-desc").textContent = styleDesc[style];
+  document.getElementById("start-designing").href = "/dashboard";
+  const colors = styleColors[style] || [];
+  document.getElementById("result-colors").innerHTML = colors.map((c) => '<div title="' + c + '" style="width:48px;height:48px;border-radius:50%;background:' + c + ';border:2px solid #2d3748;"></div>').join("");
+  document.getElementById("progress-bar").style.width = "100%";
+  document.getElementById("q-label").textContent = "Quiz Complete!";
+  document.getElementById("q-pct").textContent = "100%";
+}
+showQuestion(0);
+</script>
+{% endblock %}

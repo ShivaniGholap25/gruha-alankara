@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gruha Alankara</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0d0d1a;color:#e2e8f0;font-family:"Segoe UI",sans-serif;min-height:100vh;}
+.navbar{display:flex;justify-content:space-between;align-items:center;padding:1rem 2rem;background:rgba(13,13,26,0.95);border-bottom:1px solid #2d3748;position:sticky;top:0;z-index:100;}
+.nav-brand{font-size:1.3rem;font-weight:700;color:#818cf8;text-decoration:none;}
+.nav-links{display:flex;gap:2rem;}
+.nav-link{color:#94a3b8;text-decoration:none;font-size:0.95rem;}
+.nav-link:hover,.nav-link.active{color:white;}
+.flash{padding:0.75rem 1.5rem;margin:1rem 2rem;border-radius:8px;}
+.flash-error{background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#ef4444;}
+.flash-success{background:rgba(16,185,129,0.15);border:1px solid #10b981;color:#10b981;}
+.flash-info{background:rgba(59,130,246,0.15);border:1px solid #3b82f6;color:#3b82f6;}
+footer{text-align:center;padding:1.5rem;color:#94a3b8;font-size:0.85rem;border-top:1px solid #2d3748;margin-top:2rem;}
+.page-wrapper{min-height:calc(100vh - 80px);display:flex;align-items:center;justify-content:center;padding:2rem;background:radial-gradient(ellipse at center,#1e1b4b 0%,#0d0d1a 60%);}
+.auth-card{background:#1a1a2e;border:1px solid #2d3748;border-radius:16px;padding:2.5rem;width:100%;max-width:420px;box-shadow:0 25px 50px rgba(0,0,0,0.5);}
+.auth-icon{width:64px;height:64px;background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;}
+.auth-icon i{font-size:1.5rem;color:white;}
+.auth-card h1{text-align:center;font-size:1.8rem;font-weight:700;margin-bottom:0.5rem;background:linear-gradient(135deg,#818cf8,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.subtitle{text-align:center;color:#94a3b8;font-size:0.9rem;margin-bottom:2rem;}
+.form-group{margin-bottom:1.25rem;}
+.form-group label{display:block;font-size:0.85rem;color:#94a3b8;margin-bottom:0.5rem;font-weight:500;}
+.input-wrapper{position:relative;}
+.input-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#6b7280;font-size:0.9rem;pointer-events:none;z-index:1;}
+.form-group input{width:100%;background:#0d0d1a;border:1px solid #2d3748;color:#e2e8f0;border-radius:8px;padding:0.75rem 0.75rem 0.75rem 2.5rem;font-size:0.95rem;transition:border-color 0.2s;}
+.form-group input:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,0.1);}
+.btn-submit{width:100%;padding:0.85rem;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;margin-top:0.5rem;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-submit:hover{opacity:0.9;}
+.divider{display:flex;align-items:center;gap:1rem;margin:1.5rem 0;}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:#2d3748;}
+.divider span{color:#6b7280;font-size:0.8rem;}
+.auth-footer{text-align:center;font-size:0.9rem;color:#94a3b8;}
+.auth-footer a{color:#818cf8;text-decoration:none;font-weight:600;}
+.card{background:#1a1a2e;border:1px solid #2d3748;border-radius:12px;padding:1.5rem;}
+.btn{padding:0.6rem 1.4rem;border-radius:8px;border:none;cursor:pointer;font-size:0.9rem;font-weight:600;transition:all 0.2s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;}
+.btn-primary{background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;}
+.btn-outline{background:transparent;border:1px solid #2d3748;color:#e2e8f0;}
+.gradient-text{background:linear-gradient(135deg,#818cf8,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.tabs{display:flex;gap:0;border-bottom:1px solid #2d3748;margin-bottom:1.5rem;}
+.tab{padding:0.75rem 1.25rem;cursor:pointer;color:#94a3b8;border-bottom:2px solid transparent;font-size:0.9rem;display:flex;align-items:center;gap:6px;}
+.tab.active{color:white;border-bottom-color:#7c3aed;}
+.progress-bar{height:6px;background:#2d3748;border-radius:3px;overflow:hidden;margin:4px 0;}
+.progress-fill{height:100%;background:linear-gradient(90deg,#7c3aed,#a855f7);border-radius:3px;}
+.badge{padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;}
+.badge-high{background:#ef4444;color:white;}
+.badge-medium{background:#f59e0b;color:black;}
+.badge-low{background:#10b981;color:white;}
+.badge-new,.badge-recommended{background:linear-gradient(135deg,#ec4899,#f43f5e);color:white;}
+.badge-popular{background:#f59e0b;color:black;}
+select,input[type=number],input[type=range]{background:#16213e;border:1px solid #2d3748;color:#e2e8f0;border-radius:8px;padding:0.5rem 0.75rem;width:100%;font-size:0.9rem;}
+select:focus,input:focus{outline:none;border-color:#7c3aed;}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <a href="/" class="nav-brand"><i class="fas fa-home" style="margin-right:8px;"></i>Gruha Alankara</a>
+  <div class="nav-links">
+    <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a>
+    <a href="/analyze" class="nav-link {% if request.path == '/analyze' %}active{% endif %}">Analyze Room</a>
+    <a href="/design" class="nav-link {% if request.path == '/design' %}active{% endif %}">Design Studio</a>
+    <a href="/catalog" class="nav-link {% if request.path == '/catalog' %}active{% endif %}">My Catalog</a>
+    <a href="/style-quiz" class="nav-link {% if request.path == '/style-quiz' %}active{% endif %}">Style Quiz</a>
+  </div>
+</nav>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+{% block content %}{% endblock %}
+<footer><p>2025 Gruha Alankara - AI Interior Stylist. Powered by Agentic AI</p></footer>
+<div id="buddy-btn" onclick="toggleBuddy()" style="position:fixed;bottom:24px;right:24px;width:56px;height:56px;background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(124,58,237,0.4);z-index:9999;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+  <i class="fas fa-robot" style="color:white;font-size:1.3rem;"></i>
+</div>
+<div id="buddy-panel" style="position:fixed;bottom:90px;right:24px;width:320px;height:440px;background:#1a1a2e;border:1px solid #2d3748;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.5);z-index:9999;display:none;flex-direction:column;overflow:hidden;">
+  <div style="padding:1rem;background:linear-gradient(135deg,#7c3aed,#a855f7);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <i class="fas fa-robot" style="color:white;"></i>
+      <span style="color:white;font-weight:700;font-size:0.95rem;">Gruha Buddy</span>
+      <span style="width:8px;height:8px;background:#10b981;border-radius:50%;display:inline-block;"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <select id="buddy-lang" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:6px;padding:2px 6px;font-size:0.75rem;cursor:pointer;">
+        <option value="en">English</option>
+        <option value="hi">Hindi</option>
+        <option value="te">Telugu</option>
+      </select>
+      <button onclick="toggleBuddy()" style="background:none;border:none;color:white;cursor:pointer;font-size:1.2rem;line-height:1;">x</button>
+    </div>
+  </div>
+  <div id="buddy-messages" style="flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.75rem;">
+    <div style="background:#16213e;border-radius:12px 12px 12px 2px;padding:0.75rem;font-size:0.85rem;color:#e2e8f0;max-width:85%;">
+      <span style="font-size:0.7rem;color:#818cf8;display:block;margin-bottom:4px;">Gruha Buddy</span>
+      Hello! I am your interior design assistant. Ask me about furniture, styles, prices or booking.
+    </div>
+  </div>
+  <div id="buddy-typing" style="display:none;padding:0 1rem 0.5rem;">
+    <span style="font-size:0.8rem;color:#94a3b8;font-style:italic;">Buddy is typing...</span>
+  </div>
+  <div style="padding:0.75rem;border-top:1px solid #2d3748;display:flex;gap:8px;flex-shrink:0;">
+    <input id="buddy-input" type="text" placeholder="Ask Buddy anything..." onkeypress="if(event.key==='Enter')sendBuddy()" style="flex:1;background:#0d0d1a;border:1px solid #2d3748;color:#e2e8f0;border-radius:8px;padding:0.5rem 0.75rem;font-size:0.85rem;outline:none;">
+    <button onclick="sendBuddy()" style="background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;color:white;border-radius:8px;padding:0.5rem 0.9rem;cursor:pointer;font-size:0.9rem;">
+      <i class="fas fa-paper-plane"></i>
+    </button>
+  </div>
+</div>
+{% block scripts %}{% endblock %}
+<script>
+let buddyOpen = false;
+function toggleBuddy() {
+  buddyOpen = !buddyOpen;
+  const panel = document.getElementById('buddy-panel');
+  panel.style.display = buddyOpen ? 'flex' : 'none';
+}
+function addBuddyMessage(text, sender) {
+  const messages = document.getElementById('buddy-messages');
+  const item = document.createElement('div');
+  if (sender === 'user') {
+    item.style.cssText = 'background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:12px 12px 2px 12px;padding:0.75rem;font-size:0.85rem;color:white;max-width:85%;align-self:flex-end;margin-left:auto;';
+    item.textContent = text;
+  } else {
+    item.style.cssText = 'background:#16213e;border-radius:12px 12px 12px 2px;padding:0.75rem;font-size:0.85rem;color:#e2e8f0;max-width:85%;';
+    item.innerHTML = '<span style="font-size:0.7rem;color:#818cf8;display:block;margin-bottom:4px;">Gruha Buddy</span>' + text;
+  }
+  messages.appendChild(item);
+  messages.scrollTop = messages.scrollHeight;
+}
+async function sendBuddy() {
+  const input = document.getElementById('buddy-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  addBuddyMessage(msg, 'user');
+  input.value = '';
+  document.getElementById('buddy-typing').style.display = 'block';
+  try {
+    const res = await fetch('/buddy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, language: document.getElementById('buddy-lang').value })
+    });
+    const data = await res.json();
+    document.getElementById('buddy-typing').style.display = 'none';
+    if (!res.ok) {
+      addBuddyMessage(data.error || 'Please login to chat with Buddy.', 'buddy');
+      return;
+    }
+    addBuddyMessage(data.text || data.reply || 'I am here to help!', 'buddy');
+    if (data.audio_url) {
+      new Audio(data.audio_url).play().catch(() => {});
+    }
+  } catch (error) {
+    document.getElementById('buddy-typing').style.display = 'none';
+    addBuddyMessage('Sorry, could not connect. Try again.', 'buddy');
+  }
+}
+</script>
+</body>
+</html>

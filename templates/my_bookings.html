@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block content %}
+<section style="max-width:1200px;margin:0 auto;padding:2rem 1.25rem;">
+  <div style="margin-bottom:1.5rem;">
+    <h1 style="font-size:2rem;font-weight:800;margin-bottom:0.35rem;background:linear-gradient(135deg,#a78bfa,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">My Bookings</h1>
+    <p style="color:#94a3b8;">Track your furniture orders</p>
+  </div>
+
+  {% set total = bookings|length %}
+  {% set pending = bookings|selectattr('status', 'equalto', 'pending')|list|length %}
+  {% set confirmed = bookings|selectattr('status', 'equalto', 'confirmed')|list|length %}
+  {% set cancelled = bookings|selectattr('status', 'equalto', 'cancelled')|list|length %}
+
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0.75rem;margin-bottom:1.2rem;" id="statsRow">
+    <div style="background:#111827;border:1px solid #334155;border-radius:12px;padding:0.9rem;"><div style="color:#94a3b8;font-size:0.86rem;">Total Bookings</div><div style="font-size:1.45rem;font-weight:800;color:#ddd6fe;">{{ total }}</div></div>
+    <div style="background:#111827;border:1px solid #334155;border-radius:12px;padding:0.9rem;"><div style="color:#94a3b8;font-size:0.86rem;">Pending</div><div style="font-size:1.45rem;font-weight:800;color:#f59e0b;">{{ pending }}</div></div>
+    <div style="background:#111827;border:1px solid #334155;border-radius:12px;padding:0.9rem;"><div style="color:#94a3b8;font-size:0.86rem;">Confirmed</div><div style="font-size:1.45rem;font-weight:800;color:#10b981;">{{ confirmed }}</div></div>
+    <div style="background:#111827;border:1px solid #334155;border-radius:12px;padding:0.9rem;"><div style="color:#94a3b8;font-size:0.86rem;">Cancelled</div><div style="font-size:1.45rem;font-weight:800;color:#ef4444;">{{ cancelled }}</div></div>
+  </div>
+
+  {% if bookings %}
+  <div style="overflow:auto;background:#111827;border:1px solid #334155;border-radius:14px;">
+    <table style="width:100%;border-collapse:collapse;min-width:760px;">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:0.85rem;border-bottom:1px solid #334155;color:#cbd5e1;">Furniture Name</th>
+          <th style="text-align:left;padding:0.85rem;border-bottom:1px solid #334155;color:#cbd5e1;">Category</th>
+          <th style="text-align:left;padding:0.85rem;border-bottom:1px solid #334155;color:#cbd5e1;">Price (Rs.)</th>
+          <th style="text-align:left;padding:0.85rem;border-bottom:1px solid #334155;color:#cbd5e1;">Status</th>
+          <th style="text-align:left;padding:0.85rem;border-bottom:1px solid #334155;color:#cbd5e1;">Date</th>
+          <th style="text-align:left;padding:0.85rem;border-bottom:1px solid #334155;color:#cbd5e1;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for booking in bookings %}
+        {% set cat = booking.furniture_category|lower %}
+        {% set cat_color = '#a78bfa' if cat == 'sofa' else '#22d3ee' if cat == 'table' else '#34d399' if cat == 'chair' else '#fbbf24' if cat == 'lamp' else '#fb7185' if cat == 'shelf' else '#94a3b8' %}
+        {% set st = booking.status|lower %}
+        {% set st_bg = '#f59e0b22' if st == 'pending' else '#10b98122' if st == 'confirmed' else '#ef444422' %}
+        {% set st_color = '#f59e0b' if st == 'pending' else '#10b981' if st == 'confirmed' else '#ef4444' %}
+        <tr data-booking-row="{{ booking.id }}">
+          <td style="padding:0.85rem;border-bottom:1px solid #273549;">{{ booking.furniture_name }}</td>
+          <td style="padding:0.85rem;border-bottom:1px solid #273549;"><span style="padding:0.2rem 0.55rem;border-radius:999px;background:{{ cat_color }}22;border:1px solid {{ cat_color }}66;color:{{ cat_color }};font-size:0.75rem;font-weight:700;">{{ booking.furniture_category|upper }}</span></td>
+          <td style="padding:0.85rem;border-bottom:1px solid #273549;">Rs. {{ '{:,.0f}'.format(booking.price|float) }}</td>
+          <td style="padding:0.85rem;border-bottom:1px solid #273549;"><span data-booking-status="{{ booking.id }}" style="padding:0.2rem 0.55rem;border-radius:999px;background:{{ st_bg }};border:1px solid {{ st_color }}66;color:{{ st_color }};font-size:0.75rem;font-weight:700;">{{ booking.status }}</span></td>
+          <td style="padding:0.85rem;border-bottom:1px solid #273549;">{{ booking.date }}</td>
+          <td style="padding:0.85rem;border-bottom:1px solid #273549;">
+            {% if st == 'pending' %}
+            <button data-cancel-booking="{{ booking.id }}" style="padding:0.45rem 0.7rem;border:1px solid #ef444466;border-radius:8px;background:#ef444422;color:#fecaca;cursor:pointer;">Cancel</button>
+            {% else %}
+            <span style="color:#64748b;">-</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="background:#111827;border:1px dashed #334155;border-radius:14px;padding:2rem;text-align:center;color:#94a3b8;">
+    <p style="margin-bottom:1rem;">No bookings found yet.</p>
+    <a href="/furniture" style="display:inline-flex;align-items:center;gap:8px;padding:0.65rem 1rem;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;text-decoration:none;font-weight:700;">Browse Furniture</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateStats() {
+  const rows = document.querySelectorAll('[data-booking-row]');
+  const total = rows.length;
+  let pending = 0;
+  let confirmed = 0;
+  let cancelled = 0;
+
+  document.querySelectorAll('[data-booking-status]').forEach((statusNode) => {
+    const value = String(statusNode.textContent || '').trim().toLowerCase();
+    if (value === 'pending') pending += 1;
+    else if (value === 'confirmed') confirmed += 1;
+    else if (value === 'cancelled') cancelled += 1;
+  });
+
+  const cards = document.querySelectorAll('#statsRow > div');
+  if (cards.length === 4) {
+    cards[0].querySelector('div:last-child').textContent = total;
+    cards[1].querySelector('div:last-child').textContent = pending;
+    cards[2].querySelector('div:last-child').textContent = confirmed;
+    cards[3].querySelector('div:last-child').textContent = cancelled;
+  }
+}
+
+async function cancelBooking(id, button) {
+  button.disabled = true;
+  button.textContent = 'Cancelling...';
+  try {
+    const response = await fetch(`/cancel-booking/${id}`, { method: 'POST' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Unable to cancel booking');
+
+    const badge = document.querySelector(`[data-booking-status="${id}"]`);
+    if (badge) {
+      badge.textContent = 'cancelled';
+      badge.style.background = '#ef444422';
+      badge.style.color = '#ef4444';
+      badge.style.border = '1px solid #ef444466';
+    }
+
+    button.replaceWith(Object.assign(document.createElement('span'), { textContent: '-' }));
+    updateStats();
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = 'Cancel';
+    window.alert(error.message || 'Unable to cancel booking');
+  }
+}
+
+document.querySelectorAll('[data-cancel-booking]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const id = Number(btn.getAttribute('data-cancel-booking'));
+    if (!id) return;
+    if (!window.confirm('Cancel this booking?')) return;
+    cancelBooking(id, btn);
+  });
+});
+
+(function responsiveStats() {
+  const row = document.getElementById('statsRow');
+  if (!row) return;
+  function apply() {
+    if (window.innerWidth < 700) row.style.gridTemplateColumns = '1fr';
+    else if (window.innerWidth < 1000) row.style.gridTemplateColumns = '1fr 1fr';
+    else row.style.gridTemplateColumns = 'repeat(4,minmax(0,1fr))';
+  }
+  apply();
+  window.addEventListener('resize', apply);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+:root{--bg:#0d0d1a;--panel:#1a1a2e;--line:#2d3748;--text:#e2e8f0;--muted:#94a3b8;--grad:linear-gradient(135deg,#7c3aed,#a855f7)}*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+.hero{position:relative;padding:6rem 2rem 4rem;background:radial-gradient(circle at 20% 20%,#1a1a2e 0%,#0d0d1a 65%);text-align:center;overflow:hidden;isolation:isolate}
+.hero-inner{position:relative;z-index:1;max-width:1100px;margin:0 auto}
+.hero-tag{font-size:.75rem;font-weight:600;color:#7c3aed;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.75rem}
+.hero h1{font-size:clamp(2rem,4vw,4rem);line-height:1.05;max-width:900px;margin:0 auto;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{max-width:760px;margin:1.25rem auto 2rem;color:#cbd5e1;font-size:1.08rem}
+.hero-actions{display:flex;justify-content:center;gap:1rem;flex-wrap:wrap}
+.live-counter{display:inline-flex;align-items:center;gap:.5rem;margin:1.25rem 0 1.5rem;padding:.45rem .9rem;border:1px solid #2d3748;border-radius:999px;background:rgba(10,10,20,.75);color:#94a3b8;font-size:.86rem}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 0 0 rgba(16,185,129,.7);animation:pulse 2s infinite}
+.section{padding:3rem 2rem;max-width:1200px;margin:0 auto}.section h2{font-size:1.8rem;margin-bottom:1.2rem}
+.section-label{font-size:.75rem;font-weight:600;color:#7c3aed;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.5rem}
+.tool-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.tool-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:1.2rem}
+.tool-card i{font-size:1.2rem;color:#c4b5fd;margin-bottom:.6rem}.tool-card h3{font-size:1.05rem;margin-bottom:.5rem}.tool-card p{color:var(--muted);font-size:.94rem;line-height:1.4}
+.styles-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}.style-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.style-card img{width:100%;height:150px;object-fit:cover;display:block}.style-body{padding:.9rem}.style-body h4{margin-bottom:.3rem}.style-body p{color:var(--muted);font-size:.9rem}
+.btn{padding:.9rem 1.4rem;border-radius:10px;text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:.55rem}.btn-primary{background:var(--grad);color:white}.btn-secondary{background:#0f172a;border:1px solid #334155;color:#e2e8f0}
+.terminal-panel{font-family:monospace;background:#0a0a14;border:1px solid #2d3748;border-radius:12px;padding:1.5rem;text-align:left;max-width:850px;margin:2.2rem auto 0}
+.terminal-panel p{margin-bottom:.45rem}
+.hero-highlights{display:flex;gap:2rem;justify-content:center;margin-top:2rem;flex-wrap:wrap}
+.hero-highlights span{color:#94a3b8;font-size:.9rem}
+.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;max-width:800px;margin:3rem auto 0}
+.hero-stats p{color:#94a3b8;font-size:.85rem}
+#particles{position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:0}
+.marquee-wrap{overflow:hidden;white-space:nowrap;padding:1rem 0;border-top:1px solid #2d3748;border-bottom:1px solid #2d3748;margin-top:2.25rem}
+.marquee-track{display:inline-block;animation:marquee 20s linear infinite;color:#94a3b8;font-size:.93rem}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes float{0%,100%{transform:translateY(0) translateX(0)}25%{transform:translateY(-20px) translateX(10px)}50%{transform:translateY(-10px) translateX(-10px)}75%{transform:translateY(-30px) translateX(5px)}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.7)}70%{box-shadow:0 0 0 10px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
+
+@media (max-width:900px){.tool-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.styles-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hero-stats{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:600px){.tool-grid,.styles-grid{grid-template-columns:1fr}.hero{padding:4.5rem 1rem 3rem}.section{padding:2.4rem 1rem}.hero-highlights{gap:1rem}.hero-stats{grid-template-columns:1fr}}
+
+</style>
+<section class="hero">
+  <div id="particles"></div>
+  <div class="hero-inner">
+    <p class="hero-tag">— the platform</p>
+    <h1>गृह अलंकार • Gruha Alankara</h1>
+    <p>Premium AI design intelligence for beautiful homes. Upload your room, pick a vibe, and generate refined concepts in seconds.</p>
+    <div class="live-counter"><span class="live-dot"></span><span>Days since our AI designed <span id="roomDays">0</span> rooms</span></div>
+    <div class="hero-actions"><a href="/dashboard" class="btn btn-primary"><i class="fas fa-wand-magic-sparkles"></i>Start Designing</a><a href="/analyze" class="btn btn-secondary"><i class="fas fa-binoculars"></i>Learn More</a></div>
+    <div class="hero-highlights">
+      <span>🏪 Nearby Shops</span>
+      <span>🎨 Style Quiz</span>
+      <span>📊 Budget Calc</span>
+      <span>🖼️ Gallery</span>
+      <span>📷 AR Camera</span>
+      <span>🤖 AI Buddy</span>
+    </div>
+    <div class="hero-stats">
+      <div style="text-align:center;">
+        <div id="count1" style="font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,#818cf8,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">0</div>
+        <p>Designs Created</p>
+      </div>
+      <div style="text-align:center;">
+        <div id="count2" style="font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,#818cf8,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">0</div>
+        <p>Styles Available</p>
+      </div>
+      <div style="text-align:center;">
+        <div id="count3" style="font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,#818cf8,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">0</div>
+        <p>AI Tools</p>
+      </div>
+      <div style="text-align:center;">
+        <div id="count4" style="font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,#818cf8,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">0</div>
+        <p>Languages</p>
+      </div>
+    </div>
+    <div class="terminal-panel">
+      <p style="color:#10b981;">root@gruha-alankara:~$ show_stats --live</p>
+      <p style="color:#94a3b8;">Loading AI models... <span style="color:#10b981;">✓ Done</span></p>
+      <p style="color:#94a3b8;">Styles available: <span style="color:#818cf8;">6 themes</span></p>
+      <p style="color:#94a3b8;">Analysis tools: <span style="color:#818cf8;">Active</span></p>
+      <p style="color:#94a3b8;">Buddy agent: <span style="color:#10b981;">Online ●</span></p>
+      <p style="color:#94a3b8;">Status: <span style="color:#10b981;">Ready for design</span></p>
+    </div>
+    <div class="marquee-wrap">
+      <div class="marquee-track">
+        Modern Minimalist &nbsp;•&nbsp; Scandinavian &nbsp;•&nbsp; Industrial &nbsp;•&nbsp; Bohemian &nbsp;•&nbsp; Traditional &nbsp;•&nbsp; Contemporary &nbsp;•&nbsp; AR Visualization &nbsp;•&nbsp; AI Design &nbsp;•&nbsp; Budget Planner &nbsp;•&nbsp; Style Quiz &nbsp;•&nbsp; Modern Minimalist &nbsp;•&nbsp; Scandinavian &nbsp;•&nbsp; Industrial &nbsp;•&nbsp; Bohemian &nbsp;•&nbsp; Traditional &nbsp;•&nbsp; Contemporary &nbsp;•&nbsp; AR Visualization &nbsp;•&nbsp; AI Design &nbsp;•&nbsp; Budget Planner &nbsp;•&nbsp; Style Quiz &nbsp;•&nbsp;
+      </div>
+    </div>
+  </div>
+</section>
+<section class="section">
+  <p class="section-label">— the tools</p>
+  <h2>Intelligent Design Tools</h2>
+  <div class="tool-grid">
+    <article class="tool-card"><i class="fas fa-brain"></i><h3>AI Style Engine</h3><p>Generates thematic spaces from your room preferences in seconds.</p></article>
+    <article class="tool-card"><i class="fas fa-camera"></i><h3>Room Analysis</h3><p>Detects dimensions, lighting, and color composition from photos.</p></article>
+    <article class="tool-card"><i class="fas fa-couch"></i><h3>Furniture Planning</h3><p>Creates practical furniture layouts for movement and comfort.</p></article>
+    <article class="tool-card"><i class="fas fa-wallet"></i><h3>Budget Split</h3><p>Distributes spending across furniture, decor, paint, and labor.</p></article>
+    <article class="tool-card"><i class="fas fa-cubes"></i><h3>3D + AR View</h3><p>Preview your concept in a spatial walkthrough before execution.</p></article>
+    <article class="tool-card"><i class="fas fa-bookmark"></i><h3>Catalog Save</h3><p>Store and compare multiple design concepts in one place.</p></article>
+  </div>
+</section>
+<section class="section">
+  <p class="section-label">— the styles</p>
+  <h2>Popular Design Styles</h2>
+  <div class="styles-grid">
+    <article class="style-card"><img src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=900&q=80" alt="Modern"><div class="style-body"><h4>Modern Minimalist</h4><p>Clean lines with balanced neutral palettes.</p></div></article>
+    <article class="style-card"><img src="https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=900&q=80" alt="Scandinavian"><div class="style-body"><h4>Scandinavian</h4><p>Light wood tones and cozy layered textures.</p></div></article>
+    <article class="style-card"><img src="https://images.unsplash.com/photo-1493666438817-866a91353ca9?auto=format&fit=crop&w=900&q=80" alt="Industrial"><div class="style-body"><h4>Industrial</h4><p>Raw finishes with strong architectural character.</p></div></article>
+    <article class="style-card"><img src="https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80" alt="Bohemian"><div class="style-body"><h4>Bohemian</h4><p>Eclectic layering and expressive decor accents.</p></div></article>
+    <article class="style-card"><img src="https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=80" alt="Traditional"><div class="style-body"><h4>Traditional</h4><p>Classic forms and rich timeless materials.</p></div></article>
+    <article class="style-card"><img src="https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=900&q=80" alt="Contemporary"><div class="style-body"><h4>Contemporary</h4><p>Trend-forward forms with sleek contrast.</p></div></article>
+    <article class="style-card"><img src="https://images.unsplash.com/photo-1503174971373-b1f69850bded?auto=format&fit=crop&w=900&q=80" alt="Mid-Century"><div class="style-body"><h4>Mid-Century</h4><p>Retro silhouettes and warm wood texture.</p></div></article>
+    <article class="style-card"><img src="https://images.unsplash.com/photo-1505692794403-35fb6b6fcb32?auto=format&fit=crop&w=900&q=80" alt="Coastal"><div class="style-body"><h4>Coastal Calm</h4><p>Airy interiors with soft sea-inspired tones.</p></div></article>
+  </div>
+</section>
+<section style="padding:4rem 2rem;background:#0a0a14;">
+  <p style="font-size:0.75rem;font-weight:600;color:#7c3aed;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.5rem;text-align:center;">— the answers</p>
+  <h2 style="text-align:center;font-size:2rem;font-weight:700;margin-bottom:3rem;background:linear-gradient(135deg,#818cf8,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Frequently Asked Questions</h2>
+  <div style="max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:1rem;">
+    <div class="faq-item" style="background:#0d0d1a;border:1px solid #2d3748;border-radius:12px;overflow:hidden;">
+      <div style="padding:1.25rem;font-family:monospace;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="toggleFaq(this)">
+        <span style="color:#10b981;">root@faq:~$ </span><span style="color:#818cf8;margin-left:8px;">DISPLAY_ANSWER --id Q01</span>
+        <span style="color:#94a3b8;">▼</span>
+      </div>
+      <div class="faq-content" style="display:none;padding:0 1.25rem 1.25rem;">
+        <p style="font-family:monospace;color:#94a3b8;font-size:0.8rem;margin-bottom:0.5rem;">Status: Active | Encoding: UTF-8</p>
+        <p style="font-weight:600;color:#e2e8f0;margin-bottom:0.5rem;">What is Gruha Alankara?</p>
+        <p style="color:#94a3b8;font-size:0.9rem;line-height:1.7;">Gruha Alankara is an AI-powered interior design platform that helps you visualize and plan your perfect home. Upload a room photo, choose a style, and get instant AI-generated design recommendations.</p>
+      </div>
+    </div>
+    <div class="faq-item" style="background:#0d0d1a;border:1px solid #2d3748;border-radius:12px;overflow:hidden;">
+      <div style="padding:1.25rem;font-family:monospace;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="toggleFaq(this)">
+        <span style="color:#10b981;">root@faq:~$ </span><span style="color:#818cf8;margin-left:8px;">DISPLAY_ANSWER --id Q02</span>
+        <span style="color:#94a3b8;">▼</span>
+      </div>
+      <div class="faq-content" style="display:none;padding:0 1.25rem 1.25rem;">
+        <p style="font-family:monospace;color:#94a3b8;font-size:0.8rem;margin-bottom:0.5rem;">Status: Active | Encoding: UTF-8</p>
+        <p style="font-weight:600;color:#e2e8f0;margin-bottom:0.5rem;">Do I need design experience to use this?</p>
+        <p style="color:#94a3b8;font-size:0.9rem;line-height:1.7;">Not at all! Gruha Alankara is designed for everyone. Simply upload your room photo, take our Style Quiz, and let the AI handle the rest. No design experience needed.</p>
+      </div>
+    </div>
+    <div class="faq-item" style="background:#0d0d1a;border:1px solid #2d3748;border-radius:12px;overflow:hidden;">
+      <div style="padding:1.25rem;font-family:monospace;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="toggleFaq(this)">
+        <span style="color:#10b981;">root@faq:~$ </span><span style="color:#818cf8;margin-left:8px;">DISPLAY_ANSWER --id Q03</span>
+        <span style="color:#94a3b8;">▼</span>
+      </div>
+      <div class="faq-content" style="display:none;padding:0 1.25rem 1.25rem;">
+        <p style="font-family:monospace;color:#94a3b8;font-size:0.8rem;margin-bottom:0.5rem;">Status: Active | Encoding: UTF-8</p>
+        <p style="font-weight:600;color:#e2e8f0;margin-bottom:0.5rem;">Is the Buddy AI chatbot free?</p>
+        <p style="color:#94a3b8;font-size:0.9rem;line-height:1.7;">Yes! The Gruha Buddy AI chatbot is completely free and supports English, Hindi and Telugu. It can help you with furniture selection, booking, pricing and design tips.</p>
+      </div>
+    </div>
+    <div class="faq-item" style="background:#0d0d1a;border:1px solid #2d3748;border-radius:12px;overflow:hidden;">
+      <div style="padding:1.25rem;font-family:monospace;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="toggleFaq(this)">
+        <span style="color:#10b981;">root@faq:~$ </span><span style="color:#818cf8;margin-left:8px;">DISPLAY_ANSWER --id Q04</span>
+        <span style="color:#94a3b8;">▼</span>
+      </div>
+      <div class="faq-content" style="display:none;padding:0 1.25rem 1.25rem;">
+        <p style="font-family:monospace;color:#94a3b8;font-size:0.8rem;margin-bottom:0.5rem;">Status: Active | Encoding: UTF-8</p>
+        <p style="font-weight:600;color:#e2e8f0;margin-bottom:0.5rem;">How accurate is the room analysis?</p>
+        <p style="color:#94a3b8;font-size:0.9rem;line-height:1.7;">Our AI analyzes your room photo to extract dimensions, lighting quality, dominant colors and structural features. Results are estimates based on image analysis and improve with better quality photos.</p>
+      </div>
+    </div>
+    <div class="faq-item" style="background:#0d0d1a;border:1px solid #2d3748;border-radius:12px;overflow:hidden;">
+      <div style="padding:1.25rem;font-family:monospace;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="toggleFaq(this)">
+        <span style="color:#10b981;">root@faq:~$ </span><span style="color:#818cf8;margin-left:8px;">DISPLAY_ANSWER --id Q05</span>
+        <span style="color:#94a3b8;">▼</span>
+      </div>
+      <div class="faq-content" style="display:none;padding:0 1.25rem 1.25rem;">
+        <p style="font-family:monospace;color:#94a3b8;font-size:0.8rem;margin-bottom:0.5rem;">Status: Active | Encoding: UTF-8</p>
+        <p style="font-weight:600;color:#e2e8f0;margin-bottom:0.5rem;">Can I book furniture directly from the app?</p>
+        <p style="color:#94a3b8;font-size:0.9rem;line-height:1.7;">Yes! Browse our furniture catalog, select items that match your design, and book them directly. You can track all your bookings in the My Bookings section.</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function animateCounter(id, target, duration) {
+  let start = 0;
+  const step = target / (duration / 16);
+  const timer = setInterval(() => {
+    start += step;
+    if(start >= target) { start = target; clearInterval(timer); }
+    document.getElementById(id).textContent = Math.floor(start) + (target > 10 ? '+' : '');
+  }, 16);
+}
+
+function toggleFaq(header) {
+  const content = header.nextElementSibling;
+  const arrow = header.querySelector('span:last-child');
+  const isOpen = content.style.display === 'block';
+  document.querySelectorAll('.faq-content').forEach(c => c.style.display = 'none');
+  document.querySelectorAll('.faq-item span:last-child').forEach(a => a.textContent = '▼');
+  if(!isOpen) {
+    content.style.display = 'block';
+    arrow.textContent = '▲';
+  }
+}
+
+const container = document.getElementById('particles');
+if(container) {
+  for(let i=0; i<20; i++) {
+    const p = document.createElement('div');
+    p.style.cssText = 'position:absolute;width:' + (Math.random()*4+2) + 'px;height:' + (Math.random()*4+2) + 'px;background:rgba(124,58,237,' + (Math.random()*0.3+0.1) + ');border-radius:50%;left:' + Math.random()*100 + '%;top:' + Math.random()*100 + '%;animation:float ' + (Math.random()*10+5) + 's ease-in-out infinite;animation-delay:' + (-Math.random()*10) + 's;';
+    container.appendChild(p);
+  }
+}
+
+let daysCounter = 0;
+setInterval(() => {
+  daysCounter += 1;
+  const roomDays = document.getElementById('roomDays');
+  if (roomDays) roomDays.textContent = String(daysCounter);
+}, 4000);
+
+window.addEventListener('load', () => {
+  animateCounter('count1', 500, 2000);
+  animateCounter('count2', 6, 1000);
+  animateCounter('count3', 10, 1500);
+  animateCounter('count4', 3, 800);
+});
+</script>
+{% endblock %}

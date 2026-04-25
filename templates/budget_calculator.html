@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% block content %}
+<section style="max-width:1100px;margin:0 auto;padding:2rem 1.25rem;">
+  <h1 class="gradient-text" style="font-size:2rem;font-weight:800;">Interior Design Budget Calculator</h1>
+  <p style="color:#94a3b8;margin:.35rem 0 1.2rem;">Estimate realistic costs for Indian market and plan your room confidently.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;" id="budgetGrid">
+    <article class="card">
+      <div style="display:grid;gap:.9rem;">
+        <div>
+          <label style="display:block;color:#94a3b8;font-size:.88rem;margin-bottom:.35rem;">Room size (sq ft)</label>
+          <input id="sizeRange" type="range" min="100" max="2000" value="450">
+          <div style="display:flex;justify-content:space-between;color:#cbd5e1;margin-top:.25rem;"><span>100</span><strong id="sizeValue">450 sq ft</strong><span>2000</span></div>
+        </div>
+        <div>
+          <label style="display:block;color:#94a3b8;font-size:.88rem;margin-bottom:.35rem;">Quality level</label>
+          <select id="qualitySelect">
+            <option value="budget">Budget</option>
+            <option value="standard" selected>Standard</option>
+            <option value="premium">Premium</option>
+            <option value="luxury">Luxury</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;color:#94a3b8;font-size:.88rem;margin-bottom:.35rem;">Room type</label>
+          <select id="roomTypeSelect">
+            <option>Living Room</option>
+            <option>Bedroom</option>
+            <option>Kitchen</option>
+            <option>Office</option>
+            <option>Bathroom</option>
+            <option>Dining Room</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;color:#94a3b8;font-size:.88rem;margin-bottom:.35rem;">Number of rooms</label>
+          <input id="roomCount" type="number" min="1" max="20" value="1">
+        </div>
+        <button id="planBtn" class="btn btn-primary" style="justify-content:center;">Plan This Design</button>
+      </div>
+    </article>
+
+    <article class="card">
+      <h3 style="margin-bottom:.75rem;">Cost Breakdown</h3>
+      <div id="breakdownList" style="display:grid;gap:.7rem;"></div>
+      <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #334155;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="color:#94a3b8;">Estimated Total</span>
+          <strong id="totalValue" style="font-size:1.35rem;color:#ddd6fe;">Rs. 0</strong>
+        </div>
+        <div id="rangeValue" style="color:#cbd5e1;margin-top:.35rem;">Range: Rs. 0 - Rs. 0</div>
+      </div>
+      <div style="margin-top:1rem;background:#0f172a;border:1px solid #334155;border-radius:12px;padding:.75rem;">
+        <h4 style="margin-bottom:.45rem;">Indian Market Benchmark</h4>
+        <div id="benchmarkText" style="color:#94a3b8;font-size:.9rem;line-height:1.5;">Approx Rs. 0/sq ft</div>
+      </div>
+    </article>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const qualityFactor = {
+  budget: 0.8,
+  standard: 1.0,
+  premium: 1.35,
+  luxury: 1.85,
+};
+
+const roomTypeFactor = {
+  'Living Room': 1.0,
+  'Bedroom': 0.95,
+  'Kitchen': 1.25,
+  'Office': 1.1,
+  'Bathroom': 1.2,
+  'Dining Room': 1.05,
+};
+
+const components = [
+  { key: 'furniture', label: 'Furniture cost estimate', base: 850, color: '#a78bfa' },
+  { key: 'painting', label: 'Painting cost', base: 95, color: '#22d3ee' },
+  { key: 'flooring', label: 'Flooring cost', base: 210, color: '#34d399' },
+  { key: 'lighting', label: 'Lighting cost', base: 140, color: '#fbbf24' },
+  { key: 'labor', label: 'Labor cost', base: 180, color: '#fb7185' },
+];
+
+function inr(v) {
+  return `Rs. ${Math.round(v).toLocaleString('en-IN')}`;
+}
+
+function updateBudget() {
+  const size = Number(document.getElementById('sizeRange').value);
+  const quality = document.getElementById('qualitySelect').value;
+  const roomType = document.getElementById('roomTypeSelect').value;
+  const roomCount = Math.max(1, Number(document.getElementById('roomCount').value) || 1);
+
+  document.getElementById('sizeValue').textContent = `${size} sq ft`;
+
+  const factor = (qualityFactor[quality] || 1) * (roomTypeFactor[roomType] || 1) * roomCount;
+  const breakdown = components.map((item) => ({
+    ...item,
+    amount: item.base * size * factor,
+  }));
+
+  const total = breakdown.reduce((sum, item) => sum + item.amount, 0);
+  const perSqft = total / (size * roomCount);
+  const min = total * 0.88;
+  const max = total * 1.18;
+
+  const list = document.getElementById('breakdownList');
+  list.innerHTML = breakdown.map((item) => {
+    const pct = Math.round((item.amount / total) * 100);
+    return `
+      <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:.65rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:.7rem;margin-bottom:.4rem;">
+          <span style="color:#cbd5e1;font-size:.9rem;">${item.label}</span>
+          <strong style="color:#e2e8f0;">${inr(item.amount)}</strong>
+        </div>
+        <div style="height:10px;background:#1e293b;border-radius:999px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${item.color},#a855f7);transition:width .4s ease;"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('totalValue').textContent = inr(total);
+  document.getElementById('rangeValue').textContent = `Range: ${inr(min)} - ${inr(max)}`;
+  document.getElementById('benchmarkText').textContent = `Approx ${inr(perSqft)}/sq ft for ${quality} ${roomType.toLowerCase()} interiors.`;
+}
+
+document.getElementById('sizeRange').addEventListener('input', updateBudget);
+document.getElementById('qualitySelect').addEventListener('change', updateBudget);
+document.getElementById('roomTypeSelect').addEventListener('change', updateBudget);
+document.getElementById('roomCount').addEventListener('input', updateBudget);
+
+document.getElementById('planBtn').addEventListener('click', () => {
+  const total = document.getElementById('totalValue').textContent.replace(/[^0-9]/g, '');
+  const roomType = document.getElementById('roomTypeSelect').value;
+  const budget = total ? Number(total) : 50000;
+  const params = new URLSearchParams({ budget: String(budget), room_type: roomType });
+  window.location.href = `/design?${params.toString()}`;
+});
+
+function responsiveBudget() {
+  const grid = document.getElementById('budgetGrid');
+  grid.style.gridTemplateColumns = window.innerWidth < 900 ? '1fr' : '1fr 1fr';
+}
+window.addEventListener('resize', responsiveBudget);
+responsiveBudget();
+updateBudget();
+</script>
+{% endblock %}

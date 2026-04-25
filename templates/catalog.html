@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+:root{--bg:#0d0d1a;--panel:#1a1a2e;--border:#2d3748;--text:#e2e8f0;--muted:#94a3b8;--accent:#7c3aed;--accent-2:#a855f7;--danger:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:"Segoe UI",sans-serif}
+.container{max-width:1240px;margin:0 auto;padding:2rem}.title{font-size:2rem;background:linear-gradient(135deg,var(--accent),var(--accent-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:1rem;margin:1rem 0}
+select,input,textarea{width:100%;padding:.7rem;border-radius:10px;border:1px solid #344155;background:#0f172a;color:var(--text)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:1rem;display:flex;flex-direction:column;gap:.75rem}
+.card-top{display:flex;justify-content:space-between;gap:.75rem;align-items:flex-start}.card h3{font-size:1rem;line-height:1.3}.meta{font-size:.88rem;color:var(--muted);line-height:1.55}.tags{display:flex;gap:.4rem;flex-wrap:wrap}.tag{padding:.2rem .55rem;border-radius:999px;background:#0f172a;border:1px solid #334155;color:#cbd5e1;font-size:.75rem;display:inline-flex;align-items:center;gap:6px}.style-badge{background:rgba(124,58,237,.18);border-color:rgba(124,58,237,.35);color:#ddd6fe}.room-badge{background:rgba(14,165,233,.15);border-color:rgba(14,165,233,.35);color:#bae6fd}
+.actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:auto}.btn{padding:.5rem .75rem;border-radius:10px;border:1px solid #39465a;background:#111827;color:var(--text);cursor:pointer;text-decoration:none;font-size:.9rem;display:inline-flex;align-items:center;gap:6px}.btn:hover{background:#1f2937}.btn.danger{border-color:rgba(239,68,68,.45);color:#fecaca;background:rgba(239,68,68,.08)}.btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none}
+.empty{padding:1.2rem;border:1px dashed #3b4a63;border-radius:12px;color:var(--muted);text-align:center;background:rgba(15,23,42,.55)}.empty-shell{grid-column:1/-1}
+.loading{padding:1rem;color:var(--muted)}
+.compare-wrap{display:none;justify-content:flex-end;margin-bottom:.9rem}.compare-wrap.show{display:flex}
+.rating{display:flex;gap:4px}.rating i{cursor:pointer;color:#475569}.rating i.active{color:#f59e0b}
+.compare-check{display:flex;align-items:center;gap:8px;color:#cbd5e1;font-size:.86rem}
+.notes{font-size:.85rem;min-height:72px;resize:vertical}
+.modal{position:fixed;inset:0;background:rgba(4,8,19,.78);display:none;align-items:center;justify-content:center;padding:1rem;z-index:1000}.modal.show{display:flex}
+.modal-card{width:min(980px,100%);max-height:90vh;overflow:auto;background:#171727;border:1px solid #36435f;border-radius:16px;padding:1rem}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.compare-col{background:#101427;border:1px solid #2f3a4f;border-radius:14px;padding:.9rem}
+.compare-row{margin-bottom:.85rem}
+.compare-label{font-size:.76rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;margin-bottom:.35rem}
+.swatch-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.swatch-row span{height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.2);display:block}
+.close-btn{background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer}
+@media (max-width:1000px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.compare-grid{grid-template-columns:1fr}}
+@media (max-width:640px){.grid{grid-template-columns:1fr}.filters{grid-template-columns:1fr}}
+
+
+</style>
+<div class="container">
+  <h1 class="title">My Design Catalog</h1>
+  <section class="filters">
+    <select id="styleFilter"><option value="">All Styles</option></select>
+    <select id="roomFilter"><option value="">All Rooms</option></select>
+    <select id="sortFilter"><option value="newest">Newest First</option><option value="oldest">Oldest First</option><option value="budgetHigh">Budget High to Low</option><option value="budgetLow">Budget Low to High</option></select>
+    <input id="searchInput" type="text" placeholder="Search title, style, or room...">
+  </section>
+  <div id="compareWrap" class="compare-wrap"><button class="btn primary" id="compareBtn"><i class="fas fa-balance-scale"></i> Compare Selected</button></div>
+  <section id="catalogGrid" class="grid"></section>
+</div>
+
+<div id="compareModal" class="modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Design Comparison</h2>
+      <button class="close-btn" id="closeCompare"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div id="compareContent" class="compare-grid"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allDesigns = [];
+let selectedForCompare = new Set();
+
+function storageKey(id, kind) {
+  return `design_${id}_${kind}`;
+}
+
+function getDesignPayload(design) {
+  return design.payload || {};
+}
+
+function uniqueOptions(values) {
+  return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+function getSavedRating(id) {
+  return Number(localStorage.getItem(storageKey(id, 'rating')) || 0);
+}
+
+function getSavedNote(id) {
+  return localStorage.getItem(storageKey(id, 'notes')) || '';
+}
+
+function renderFilters() {
+  const styles = uniqueOptions(allDesigns.map((design) => design.style_theme));
+  const rooms = uniqueOptions(allDesigns.map((design) => design.room_type));
+  const styleFilter = document.getElementById('styleFilter');
+  const roomFilter = document.getElementById('roomFilter');
+  styleFilter.innerHTML = '<option value="">All Styles</option>' + styles.map((style) => `<option value="${style}">${style}</option>`).join('');
+  roomFilter.innerHTML = '<option value="">All Rooms</option>' + rooms.map((room) => `<option value="${room}">${room}</option>`).join('');
+}
+
+function updateCompareButton() {
+  const wrap = document.getElementById('compareWrap');
+  wrap.classList.toggle('show', selectedForCompare.size === 2);
+}
+
+function applyFilters() {
+  const style = document.getElementById('styleFilter').value;
+  const room = document.getElementById('roomFilter').value;
+  const sort = document.getElementById('sortFilter').value;
+  const query = document.getElementById('searchInput').value.trim().toLowerCase();
+
+  let list = [...allDesigns].filter((design) => {
+    const title = (design.title || '').toLowerCase();
+    const styleName = (design.style_theme || '').toLowerCase();
+    const roomName = (design.room_type || '').toLowerCase();
+    const matchesSearch = !query || title.includes(query) || styleName.includes(query) || roomName.includes(query);
+    return (!style || design.style_theme === style) && (!room || design.room_type === room) && matchesSearch;
+  });
+
+  if (sort === 'newest') {
+    list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  } else if (sort === 'oldest') {
+    list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  } else if (sort === 'budgetHigh') {
+    list.sort((a, b) => (b.budget || 0) - (a.budget || 0));
+  } else if (sort === 'budgetLow') {
+    list.sort((a, b) => (a.budget || 0) - (b.budget || 0));
+  }
+
+  renderGrid(list);
+}
+
+function buildStars(id, rating) {
+  return Array.from({length: 5}, (_, index) => {
+    const star = index + 1;
+    return `<i class="fas fa-star ${star <= rating ? 'active' : ''}" data-id="${id}" data-star="${star}"></i>`;
+  }).join('');
+}
+
+function parsePalette(design) {
+  const payload = getDesignPayload(design);
+  if (payload.selected_palette && Array.isArray(payload.selected_palette.colors)) return payload.selected_palette.colors;
+  if (Array.isArray(payload.colors)) return payload.colors.slice(0, 4);
+  return ['#7c3aed', '#a855f7', '#4338ca', '#c4b5fd'];
+}
+
+function parseBudgetRows(design) {
+  const payload = getDesignPayload(design);
+  const rows = Array.isArray(payload.budget_breakdown) ? payload.budget_breakdown : [];
+  if (!rows.length) return '<div class="meta">No budget breakdown available.</div>';
+  return rows.map((row) => `<div class="meta">${row.category || row.name}: Rs. ${Number(row.amount || 0).toLocaleString()} (${Number(row.percent || row.percentage || 0)}%)</div>`).join('');
+}
+
+function parseFurnitureRows(design) {
+  const payload = getDesignPayload(design);
+  const rows = Array.isArray(payload.furniture) ? payload.furniture : [];
+  if (!rows.length) return '<div class="meta">No furniture list available.</div>';
+  return rows.map((item) => `<div class="meta">${item.name || 'Item'} x ${item.quantity || 1}</div>`).join('');
+}
+
+function parseDimensions(design) {
+  const payload = getDesignPayload(design);
+  if (payload.room_data) {
+    const d = payload.room_data;
+    return `${d.width || '-'} x ${d.length || '-'} x ${d.height || '-'} ft`;
+  }
+  if (payload.room_dimensions) {
+    const d = payload.room_dimensions;
+    return `${d.width || '-'} x ${d.length || '-'} x ${d.height || '-'} ft`;
+  }
+  return 'N/A';
+}
+
+function renderGrid(list) {
+  const grid = document.getElementById('catalogGrid');
+  if (!allDesigns.length) {
+    grid.innerHTML = '<div class="empty empty-shell">No designs saved yet. Generate one from Design Studio to get started.</div>';
+    return;
+  }
+
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty empty-shell">No designs match the selected filters.</div>';
+    return;
+  }
+
+  grid.innerHTML = list.map((design) => {
+    const title = design.title || 'Untitled Design';
+    const style = design.style_theme || 'N/A';
+    const room = design.room_type || 'N/A';
+    const budget = Number(design.budget || 0).toLocaleString();
+    const roomIcons = {
+      'Living Room': 'fa-couch', 'Bedroom': 'fa-bed', 'Kitchen': 'fa-kitchen-set',
+      'Bathroom': 'fa-bath', 'Office': 'fa-briefcase', 'Dining Room': 'fa-utensils'
+    };
+    const iconClass = roomIcons[room] || 'fa-house';
+    const rating = getSavedRating(design.id);
+    const note = getSavedNote(design.id);
+    const checked = selectedForCompare.has(design.id) ? 'checked' : '';
+
+    return `
+      <article class="card">
+        <div class="card-top">
+          <div>
+            <h3>${title}</h3>
+            <div class="meta">Created: ${design.created_at || 'N/A'}</div>
+          </div>
+          <span class="tag style-badge">${style}</span>
+        </div>
+        <div class="tags"><span class="tag room-badge"><i class="fas ${iconClass}"></i> ${room}</span></div>
+        <div class="meta">Budget: Rs. ${budget}</div>
+        <label class="compare-check"><input type="checkbox" class="compareBox" data-id="${design.id}" ${checked}> Compare</label>
+        <div>
+          <div class="meta" style="margin-bottom:4px;">Rating</div>
+          <div class="rating" data-id="${design.id}">${buildStars(design.id, rating)}</div>
+        </div>
+        <div>
+          <div class="meta" style="margin-bottom:4px;">Notes</div>
+          <textarea class="notes" data-id="${design.id}" placeholder="Add your notes...">${note}</textarea>
+        </div>
+        <div class="actions">
+          <button class="btn primary" onclick="location.href='/design?edit=${design.id}'"><i class="fas fa-pen"></i> Edit</button>
+          <button class="btn" onclick="duplicateDesign(${design.id})"><i class="fas fa-copy"></i> Duplicate</button>
+          <button class="btn danger" onclick="deleteDesign(${design.id})"><i class="fas fa-trash"></i> Delete</button>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  bindCardEvents();
+}
+
+function bindCardEvents() {
+  document.querySelectorAll('.compareBox').forEach((box) => {
+    box.addEventListener('change', () => {
+      const id = Number(box.dataset.id);
+      if (box.checked) {
+        if (selectedForCompare.size >= 2) {
+          box.checked = false;
+          window.alert('Please select only 2 designs for comparison.');
+          return;
+        }
+        selectedForCompare.add(id);
+      } else {
+        selectedForCompare.delete(id);
+      }
+      updateCompareButton();
+    });
+  });
+
+  document.querySelectorAll('.rating i').forEach((star) => {
+    star.addEventListener('click', () => {
+      const id = Number(star.dataset.id);
+      const value = Number(star.dataset.star);
+      localStorage.setItem(storageKey(id, 'rating'), String(value));
+      applyFilters();
+    });
+  });
+
+  document.querySelectorAll('.notes').forEach((area) => {
+    area.addEventListener('input', () => {
+      localStorage.setItem(storageKey(Number(area.dataset.id), 'notes'), area.value);
+    });
+  });
+}
+
+function renderCompareColumn(design) {
+  const palette = parsePalette(design);
+  return `
+    <div class="compare-col">
+      <h3 style="margin-bottom:.8rem">${design.title || 'Untitled Design'}</h3>
+      <div class="compare-row"><div class="compare-label">Style Theme</div><div>${design.style_theme || 'N/A'}</div></div>
+      <div class="compare-row"><div class="compare-label">Color Palette</div><div class="swatch-row">${palette.map((color) => `<span style="background:${color}"></span>`).join('')}</div></div>
+      <div class="compare-row"><div class="compare-label">Budget Breakdown</div>${parseBudgetRows(design)}</div>
+      <div class="compare-row"><div class="compare-label">Furniture List</div>${parseFurnitureRows(design)}</div>
+      <div class="compare-row"><div class="compare-label">Room Type</div><div>${design.room_type || 'N/A'}</div></div>
+      <div class="compare-row"><div class="compare-label">Dimensions</div><div>${parseDimensions(design)}</div></div>
+    </div>
+  `;
+}
+
+function openCompareModal() {
+  if (selectedForCompare.size !== 2) return;
+  const selected = allDesigns.filter((item) => selectedForCompare.has(item.id));
+  const content = document.getElementById('compareContent');
+  content.innerHTML = selected.map(renderCompareColumn).join('');
+  document.getElementById('compareModal').classList.add('show');
+}
+
+async function loadDesigns() {
+  const grid = document.getElementById('catalogGrid');
+  grid.innerHTML = '<div class="loading empty-shell">Loading designs...</div>';
+  try {
+    const response = await fetch('/get-designs');
+    const data = await response.json();
+    allDesigns = Array.isArray(data) ? data : [];
+    renderFilters();
+    applyFilters();
+  } catch (error) {
+    grid.innerHTML = `<div class="empty empty-shell">Unable to load catalog: ${error.message || 'Unknown error'}</div>`;
+  }
+}
+
+async function duplicateDesign(id) {
+  try {
+    const response = await fetch(`/duplicate-design/${id}`, {method: 'POST'});
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Duplicate failed');
+    }
+    await loadDesigns();
+  } catch (error) {
+    window.alert(error.message || 'Unable to duplicate design.');
+  }
+}
+
+async function deleteDesign(id) {
+  if (!window.confirm('Delete this design? This cannot be undone.')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/delete-design/${id}`, {method: 'DELETE'});
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Delete failed');
+    }
+    allDesigns = allDesigns.filter((design) => design.id !== id);
+    selectedForCompare.delete(id);
+    renderFilters();
+    applyFilters();
+    updateCompareButton();
+  } catch (error) {
+    window.alert(error.message || 'Unable to delete design.');
+  }
+}
+
+['styleFilter', 'roomFilter', 'sortFilter'].forEach((id) => document.getElementById(id).addEventListener('change', applyFilters));
+document.getElementById('searchInput').addEventListener('input', applyFilters);
+document.getElementById('compareBtn').addEventListener('click', openCompareModal);
+document.getElementById('closeCompare').addEventListener('click', () => document.getElementById('compareModal').classList.remove('show'));
+document.getElementById('compareModal').addEventListener('click', (event) => {
+  if (event.target.id === 'compareModal') document.getElementById('compareModal').classList.remove('show');
+});
+window.addEventListener('DOMContentLoaded', loadDesigns);
+</script>
+{% endblock %}

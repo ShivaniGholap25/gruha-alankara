@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:1280px;margin:0 auto;padding:2rem;">
+  <div style="margin-bottom:1.2rem;">
+    <h1 style="font-size:2rem;font-weight:800;background:linear-gradient(135deg,#818cf8,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Design Studio</h1>
+    <p style="color:#94a3b8;">Generate room-specific furniture, budget breakdown, and mood board recommendations with AI.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:320px 1fr;gap:1rem;align-items:start;">
+    <aside style="background:#1a1a2e;border:1px solid #2d3748;border-radius:14px;padding:1rem;position:sticky;top:80px;">
+      <h3 style="font-size:1rem;margin-bottom:1rem;">Design Controls</h3>
+      <label style="font-size:0.85rem;color:#94a3b8;display:block;margin-bottom:0.3rem;">Style Theme</label>
+      <select id="style_theme">
+        <option>Modern Minimalist</option><option>Scandinavian</option><option>Industrial</option><option>Bohemian</option><option>Traditional</option><option>Contemporary</option>
+      </select>
+      <div style="margin-top:0.8rem;">
+        <label style="font-size:0.85rem;color:#94a3b8;display:block;margin-bottom:0.3rem;">Budget (INR)</label>
+        <input id="budget" type="number" min="10000" step="1000" value="50000">
+        <input id="budget_range" type="range" min="10000" max="300000" step="1000" value="50000" style="margin-top:0.6rem;">
+      </div>
+      <div style="margin-top:0.8rem;">
+        <label style="font-size:0.85rem;color:#94a3b8;display:block;margin-bottom:0.3rem;">Room Type</label>
+        <select id="room_type">
+          <option>Living Room</option><option>Bedroom</option><option>Kitchen</option><option>Bathroom</option><option>Office</option><option>Dining Room</option>
+        </select>
+      </div>
+      <div style="margin-top:0.8rem;">
+        <label style="font-size:0.85rem;color:#94a3b8;display:block;margin-bottom:0.3rem;">Color Theme</label>
+        <input id="color_theme" type="hidden" value="Warm Neutrals">
+        <div id="colorThemeGrid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;">
+          <button type="button" class="theme-swatch" data-theme="Warm Neutrals" style="border:1px solid #475569;border-radius:8px;padding:4px;background:#0f172a;cursor:pointer;"><div style="height:18px;border-radius:4px;background:linear-gradient(90deg,#f5f0e8,#d4a373,#ccd5ae,#e9edc9);"></div><p style="font-size:0.6rem;color:#cbd5e1;margin:4px 0 0;">Warm</p></button>
+          <button type="button" class="theme-swatch" data-theme="Cool Blue" style="border:1px solid #475569;border-radius:8px;padding:4px;background:#0f172a;cursor:pointer;"><div style="height:18px;border-radius:4px;background:linear-gradient(90deg,#03045e,#0077b6,#00b4d8,#90e0ef);"></div><p style="font-size:0.6rem;color:#cbd5e1;margin:4px 0 0;">Cool Blue</p></button>
+          <button type="button" class="theme-swatch" data-theme="Earth Tones" style="border:1px solid #475569;border-radius:8px;padding:4px;background:#0f172a;cursor:pointer;"><div style="height:18px;border-radius:4px;background:linear-gradient(90deg,#6b4226,#a0522d,#d2691e,#deb887);"></div><p style="font-size:0.6rem;color:#cbd5e1;margin:4px 0 0;">Earth</p></button>
+          <button type="button" class="theme-swatch" data-theme="Forest Green" style="border:1px solid #475569;border-radius:8px;padding:4px;background:#0f172a;cursor:pointer;"><div style="height:18px;border-radius:4px;background:linear-gradient(90deg,#1b4332,#2d6a4f,#52b788,#b7e4c7);"></div><p style="font-size:0.6rem;color:#cbd5e1;margin:4px 0 0;">Forest</p></button>
+          <button type="button" class="theme-swatch" data-theme="Sunset Vibes" style="border:1px solid #475569;border-radius:8px;padding:4px;background:#0f172a;cursor:pointer;"><div style="height:18px;border-radius:4px;background:linear-gradient(90deg,#ff6b6b,#ffa07a,#ffd93d,#6bcb77);"></div><p style="font-size:0.6rem;color:#cbd5e1;margin:4px 0 0;">Sunset</p></button>
+          <button type="button" class="theme-swatch" data-theme="Royal Purple" style="border:1px solid #475569;border-radius:8px;padding:4px;background:#0f172a;cursor:pointer;"><div style="height:18px;border-radius:4px;background:linear-gradient(90deg,#10002b,#3c096c,#7b2fbe,#e0aaff);"></div><p style="font-size:0.6rem;color:#cbd5e1;margin:4px 0 0;">Royal</p></button>
+          <button type="button" class="theme-swatch" data-theme="Monochrome" style="border:1px solid #475569;border-radius:8px;padding:4px;background:#0f172a;cursor:pointer;"><div style="height:18px;border-radius:4px;background:linear-gradient(90deg,#1a1a1a,#4a4a4a,#8a8a8a,#dadada);"></div><p style="font-size:0.6rem;color:#cbd5e1;margin:4px 0 0;">Mono</p></button>
+          <button type="button" class="theme-swatch" data-theme="Ocean Breeze" style="border:1px solid #475569;border-radius:8px;padding:4px;background:#0f172a;cursor:pointer;"><div style="height:18px;border-radius:4px;background:linear-gradient(90deg,#023e8a,#0096c7,#48cae4,#ade8f4);"></div><p style="font-size:0.6rem;color:#cbd5e1;margin:4px 0 0;">Ocean</p></button>
+        </div>
+        <p id="selectedThemeText" style="font-size:0.75rem;color:#818cf8;margin-top:4px;">Warm Neutrals selected</p>
+      </div>
+      <div style="margin-top:0.8rem;">
+        <label style="font-size:0.85rem;color:#94a3b8;display:block;margin-bottom:0.3rem;">Room Dimensions (ft)</label>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;">
+          <input id="width" type="number" min="5" value="12" placeholder="W">
+          <input id="length" type="number" min="5" value="14" placeholder="L">
+          <input id="height" type="number" min="7" value="9" placeholder="H">
+        </div>
+        <p id="areaLabel" style="font-size:0.75rem;color:#94a3b8;margin-top:6px;">Area: 168 sq ft</p>
+      </div>
+      <button id="generateBtn" class="btn btn-primary" style="width:100%;margin-top:1rem;justify-content:center;"><i class="fas fa-wand-magic-sparkles"></i>Generate Design</button>
+      <button id="saveBtn" class="btn btn-outline" style="width:100%;margin-top:0.7rem;justify-content:center;"><i class="fas fa-bookmark"></i>Save to Catalog</button>
+      <button id="exportPdfBtn" class="btn btn-outline" style="width:100%;margin-top:0.7rem;justify-content:center;"><i class="fas fa-file-pdf"></i>Export PDF</button>
+      <div style="margin-top:0.9rem;background:#16213e;border:1px solid #2d3748;border-radius:8px;padding:0.7rem;">
+        <p style="font-size:0.78rem;color:#94a3b8;">Quick Tips</p>
+        <ul style="margin:0.4rem 0 0 1rem;color:#cbd5e1;font-size:0.78rem;line-height:1.6;">
+          <li>Keep a 2.5 ft movement path.</li>
+          <li>Use layered lighting for depth.</li>
+          <li>Start with high priority furniture.</li>
+        </ul>
+      </div>
+      <p id="aiStatus" style="margin-top:0.7rem;font-size:0.85rem;color:#10b981;">AI Status: Ready</p>
+    </aside>
+
+    <section style="background:#1a1a2e;border:1px solid #2d3748;border-radius:14px;padding:1rem;">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('overview',this)">Overview</div>
+        <div class="tab" onclick="switchTab('furniture',this)">Furniture</div>
+        <div class="tab" onclick="switchTab('budget_tab',this)">Budget</div>
+        <div class="tab" onclick="switchTab('view3d',this)">3D View</div>
+        <div class="tab" onclick="switchTab('mood',this)">Mood Board</div>
+      </div>
+      <div id="overview" class="tab-pane"></div>
+      <div id="furniture" class="tab-pane" style="display:none;"></div>
+      <div id="budget_tab" class="tab-pane" style="display:none;"></div>
+      <div id="view3d" class="tab-pane" style="display:none;">
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;">
+          <a href="/live_ar" class="card" style="text-decoration:none;color:#e2e8f0;"><i class="fas fa-camera" style="color:#818cf8;"></i><h4 style="margin:0.5rem 0;">AR Camera</h4><p style="color:#94a3b8;">Try placement overlays with live camera.</p></a>
+          <div class="card"><i class="fas fa-cube" style="color:#818cf8;"></i><h4 style="margin:0.5rem 0;">3D Viewer</h4><p style="color:#94a3b8;">Interactive model view with room depth.</p></div>
+          <div class="card"><i class="fas fa-globe" style="color:#818cf8;"></i><h4 style="margin:0.5rem 0;">360 Preview</h4><p style="color:#94a3b8;">Walkthrough perspective preview.</p></div>
+        </div>
+      </div>
+      <div id="mood" class="tab-pane" style="display:none;"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+let latestDesign = null;
+document.getElementById("budget_range").addEventListener("input", (e) => document.getElementById("budget").value = e.target.value);
+document.getElementById("budget").addEventListener("input", (e) => document.getElementById("budget_range").value = e.target.value || 10000);
+
+function switchTab(name, el) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".tab-pane").forEach(p => p.style.display = "none");
+  el.classList.add("active");
+  document.getElementById(name).style.display = "block";
+}
+function inr(v) { return "Rs. " + Number(v || 0).toLocaleString("en-IN"); }
+function bar(amount, budget) { return Math.max(4, Math.round((Number(amount || 0) / Number(budget || 1)) * 100)); }
+function renderDefaultOverview() {
+  document.getElementById("overview").innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;">
+      <div class="card"><p style="color:#94a3b8;margin:0 0 0.4rem;">Style Suggestions</p><h3>No design generated</h3><p style="color:#94a3b8;margin-top:0.5rem;">Use the left panel to generate a concept.</p></div>
+      <div class="card"><p style="color:#94a3b8;margin:0 0 0.4rem;">Selected Color Palette</p><p style="color:#94a3b8;">No palette selected.</p></div>
+      <div class="card"><p style="color:#94a3b8;margin:0 0 0.4rem;">Materials</p><p style="color:#94a3b8;">No material list yet.</p></div>
+    </div>
+    <div class="card" style="margin-top:1rem;"><h4>AI Story</h4><p style="color:#94a3b8;margin-top:0.6rem;">Generated story will appear here.</p></div>`;
+  document.getElementById("furniture").innerHTML = '<div class="card"><p style="color:#94a3b8;">No furniture generated yet.</p></div>';
+  document.getElementById("budget_tab").innerHTML = '<div class="card"><p style="color:#94a3b8;">No budget breakdown generated yet.</p></div>';
+  document.getElementById("mood").innerHTML = '<div class="card"><p style="color:#94a3b8;">Mood board appears after generation.</p></div>';
+}
+
+function renderOverview(data) {
+  document.getElementById("overview").innerHTML = `
+    <div class="card"><h3>${data.style_theme} • ${data.room_type}</h3><p style="color:#94a3b8;margin:0.5rem 0;">${data.description}</p><p style="color:#cbd5e1;">${data.ai_story || ""}</p></div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-top:1rem;">
+      <div class="card"><h4>Color Palette</h4><div style="display:flex;gap:8px;margin-top:0.8rem;">${(data.colors || []).map(c => `<div title="${c}" style="width:34px;height:34px;border-radius:50%;background:${c};border:1px solid #334155;"></div>`).join("")}</div></div>
+      <div class="card"><h4>Materials</h4><p style="color:#94a3b8;margin-top:0.8rem;">${(data.materials || []).join(", ")}</p></div>
+    </div>`;
+}
+function renderFurniture(data) {
+  document.getElementById("furniture").innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;">
+      ${(data.furniture_list || []).map(f => `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><h4>${f.name}</h4><span class="badge ${f.priority === "High" ? "badge-high" : f.priority === "Medium" ? "badge-medium" : "badge-low"}">${f.priority || "Low"}</span></div><p style="color:#94a3b8;">Material: ${f.material || "N/A"}</p><p style="font-weight:700;">${inr(f.price)}</p></div>`).join("")}
+    </div>`;
+}
+function renderBudget(data) {
+  document.getElementById("budget_tab").innerHTML = `
+    <div class="card"><h4>Budget Breakdown (${inr(data.budget)})</h4>
+      ${(data.budget_breakdown || []).map(b => `<div style="margin-top:0.8rem;"><div style="display:flex;justify-content:space-between;"><span style="color:#94a3b8;">${b.category}</span><strong>${inr(b.amount)}</strong></div><div class="progress-bar"><div class="progress-fill" style="width:${bar(b.amount, data.budget)}%;"></div></div></div>`).join("")}
+      <div style="margin-top:1rem;"><p style="color:#94a3b8;font-size:0.85rem;">Savings Tips</p><ul style="margin:0.4rem 0 0 1rem;color:#cbd5e1;font-size:0.85rem;">${(data.savings_tips || []).map(t => `<li>${t}</li>`).join("")}</ul></div>
+    </div>`;
+}
+function renderMood(data) {
+  document.getElementById("mood").innerHTML = `<div class="card"><h4>Mood Board</h4><p style="color:#94a3b8;margin-top:0.7rem;">Theme: ${data.color_theme} | Style: ${data.style_theme}</p><div style="margin-top:1rem;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">${(data.colors || []).map(c => `<div style="height:64px;border-radius:8px;background:${c};border:1px solid #334155;"></div>`).join("")}</div></div>`;
+}
+
+async function generateDesign() {
+  document.getElementById("aiStatus").textContent = "AI Status: Generating...";
+  const payload = {
+    style_theme: document.getElementById("style_theme").value,
+    budget: document.getElementById("budget").value,
+    room_type: document.getElementById("room_type").value,
+    color_theme: document.getElementById("color_theme").value,
+    dimensions: {
+      width: document.getElementById("width").value,
+      length: document.getElementById("length").value,
+      height: document.getElementById("height").value
+    }
+  };
+  const res = await fetch("/generate-design", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to generate design");
+  latestDesign = data;
+  renderOverview(data); renderFurniture(data); renderBudget(data); renderMood(data);
+  document.getElementById("aiStatus").textContent = "AI Status: " + (data.ai_status || "Complete");
+}
+
+document.getElementById("generateBtn").addEventListener("click", async () => {
+  try { await generateDesign(); }
+  catch (e) { document.getElementById("aiStatus").textContent = "AI Status: Error - " + (e.message || "Try again"); }
+});
+
+document.getElementById("saveBtn").addEventListener("click", async () => {
+  if (!latestDesign) { alert("Generate a design first."); return; }
+  const res = await fetch("/save-design", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(latestDesign) });
+  const data = await res.json();
+  if (!res.ok) { alert(data.error || "Could not save design."); return; }
+  alert("Design saved to catalog successfully.");
+});
+document.getElementById("exportPdfBtn").addEventListener("click", () => window.print());
+
+document.querySelectorAll(".theme-swatch").forEach((button, index) => {
+  if (index === 0) button.style.borderColor = "#7c3aed";
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".theme-swatch").forEach((b) => b.style.borderColor = "#475569");
+    button.style.borderColor = "#7c3aed";
+    const theme = button.getAttribute("data-theme") || "Warm Neutrals";
+    document.getElementById("color_theme").value = theme;
+    document.getElementById("selectedThemeText").textContent = theme + " selected";
+  });
+});
+
+function updateAreaLabel() {
+  const w = Number(document.getElementById("width").value || 0);
+  const l = Number(document.getElementById("length").value || 0);
+  document.getElementById("areaLabel").textContent = "Area: " + Math.round(w * l) + " sq ft";
+}
+["width", "length"].forEach((id) => document.getElementById(id).addEventListener("input", updateAreaLabel));
+
+function applyInitialQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  const style = params.get("style");
+  const room = params.get("room_type");
+  const budget = params.get("budget");
+  if (style) {
+    const styleSelect = document.getElementById("style_theme");
+    const hasOption = Array.from(styleSelect.options).some((opt) => opt.value === style);
+    if (hasOption) styleSelect.value = style;
+  }
+  if (room) {
+    const roomSelect = document.getElementById("room_type");
+    const hasOption = Array.from(roomSelect.options).some((opt) => opt.value === room);
+    if (hasOption) roomSelect.value = room;
+  }
+  if (budget && !Number.isNaN(Number(budget))) {
+    const normalized = Math.max(10000, Math.min(300000, Number(budget)));
+    document.getElementById("budget").value = normalized;
+    document.getElementById("budget_range").value = normalized;
+  }
+}
+
+applyInitialQueryParams();
+updateAreaLabel();
+renderDefaultOverview();
+</script>
+{% endblock %}

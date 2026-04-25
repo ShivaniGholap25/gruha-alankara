@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block content %}
+<section style="max-width:1220px;margin:0 auto;padding:2rem 1.25rem;">
+  <h1 class="gradient-text" style="font-size:2rem;font-weight:800;">Design Inspiration Gallery</h1>
+  <p style="color:#94a3b8;margin:.35rem 0 1rem;">Explore visual styles, like your favorites, and send ideas to your mood board.</p>
+
+  <div id="galleryTabs" style="display:flex;gap:.55rem;flex-wrap:wrap;margin-bottom:1rem;"></div>
+  <div id="masonry" style="column-count:3;column-gap:1rem;"></div>
+</section>
+
+<div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,.82);z-index:1800;padding:1rem;align-items:center;justify-content:center;">
+  <div style="width:min(960px,100%);background:#111827;border:1px solid #334155;border-radius:14px;overflow:hidden;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:.8rem 1rem;border-bottom:1px solid #334155;">
+      <strong id="lightboxTitle">Style Preview</strong>
+      <button id="closeLightbox" style="background:none;border:none;color:#cbd5e1;cursor:pointer;font-size:1.1rem;">×</button>
+    </div>
+    <img id="lightboxImage" src="" alt="Inspiration" style="width:100%;max-height:70vh;object-fit:cover;display:block;">
+    <div id="lightboxMeta" style="padding:.85rem 1rem;color:#cbd5e1;"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const images = [
+  { category: 'Living Room', style: 'Modern', src: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400', title: 'Modern Living Serenity' },
+  { category: 'Bedroom', style: 'Scandinavian', src: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=400', title: 'Cozy Bedroom Calm' },
+  { category: 'Kitchen', style: 'Contemporary', src: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400', title: 'Bright Kitchen Flow' },
+  { category: 'Office', style: 'Industrial', src: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400', title: 'Focused Work Nook' },
+  { category: 'Bathroom', style: 'Minimalist', src: 'https://images.unsplash.com/photo-1507652313519-d4e9174996dd?w=400', title: 'Calm Bathroom Spa' },
+  { category: 'Living Room', style: 'Bohemian', src: 'https://images.unsplash.com/photo-1522444195799-478538b28823?w=400', title: 'Boho Textured Lounge' },
+  { category: 'Bedroom', style: 'Traditional', src: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=400', title: 'Classic Bedroom Craft' },
+  { category: 'Kitchen', style: 'Modern', src: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=400', title: 'Sleek Kitchen Lines' },
+  { category: 'Office', style: 'Scandinavian', src: 'https://images.unsplash.com/photo-1486946255434-2466348c2166?w=400', title: 'Nordic Office Desk' },
+  { category: 'Bathroom', style: 'Luxury', src: 'https://images.unsplash.com/photo-1616594039964-0f6b2d5243d2?w=400', title: 'Luxury Marble Bath' }
+];
+
+const tabs = ['All', 'Living Room', 'Bedroom', 'Kitchen', 'Office', 'Bathroom'];
+let activeTab = 'All';
+
+function likesKey(id) {
+  return `gallery_like_${id}`;
+}
+
+function moodBoardKey() {
+  return 'mood_board_saved_styles';
+}
+
+function renderTabs() {
+  const el = document.getElementById('galleryTabs');
+  el.innerHTML = tabs.map((tab) => {
+    const active = activeTab === tab;
+    return `<button data-tab="${tab}" style="padding:.45rem .85rem;border-radius:999px;border:${active ? 'none' : '1px solid #334155'};background:${active ? 'linear-gradient(135deg,#7c3aed,#a855f7)' : '#111827'};color:${active ? '#fff' : '#cbd5e1'};cursor:pointer;">${tab}</button>`;
+  }).join('');
+
+  el.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeTab = btn.dataset.tab;
+      renderTabs();
+      renderGallery();
+    });
+  });
+}
+
+function getFiltered() {
+  if (activeTab === 'All') return images;
+  return images.filter((item) => item.category === activeTab);
+}
+
+function renderGallery() {
+  const wrap = document.getElementById('masonry');
+  const list = getFiltered();
+  wrap.innerHTML = list.map((item, idx) => {
+    const id = `${item.category}_${idx}_${item.style}`.replace(/\s+/g, '_').toLowerCase();
+    const liked = localStorage.getItem(likesKey(id)) === '1';
+    return `
+      <article style="break-inside:avoid;background:#111827;border:1px solid #334155;border-radius:12px;overflow:hidden;margin:0 0 1rem;">
+        <img src="${item.src}" alt="${item.title}" data-open-lightbox="${id}" style="width:100%;display:block;cursor:pointer;">
+        <div style="padding:.75rem;display:grid;gap:.45rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:.4rem;">
+            <strong style="font-size:.95rem;">${item.title}</strong>
+            <span style="padding:.2rem .5rem;border-radius:999px;background:#7c3aed22;border:1px solid #7c3aed66;color:#c4b5fd;font-size:.75rem;">${item.style}</span>
+          </div>
+          <div style="display:flex;gap:.45rem;flex-wrap:wrap;">
+            <button data-like="${id}" style="padding:.4rem .65rem;border:1px solid #334155;border-radius:8px;background:${liked ? '#ef444422' : 'transparent'};color:${liked ? '#fecaca' : '#cbd5e1'};cursor:pointer;">${liked ? '♥ Liked' : '♡ Like'}</button>
+            <a href="/design?style=${encodeURIComponent(item.style)}" class="btn btn-primary" style="padding:.4rem .65rem;">Use This Style</a>
+            <button data-save-mood="${id}" style="padding:.4rem .65rem;border:1px solid #334155;border-radius:8px;background:transparent;color:#cbd5e1;cursor:pointer;">Save to Mood Board</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  wrap.querySelectorAll('[data-like]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-like');
+      const liked = localStorage.getItem(likesKey(id)) === '1';
+      localStorage.setItem(likesKey(id), liked ? '0' : '1');
+      renderGallery();
+    });
+  });
+
+  wrap.querySelectorAll('[data-save-mood]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-save-mood');
+      const card = images.find((_, idx) => `${_.category}_${idx}_${_.style}`.replace(/\s+/g, '_').toLowerCase() === id);
+      const saved = JSON.parse(localStorage.getItem(moodBoardKey()) || '[]');
+      if (card && !saved.find((x) => x.title === card.title)) {
+        saved.push(card);
+        localStorage.setItem(moodBoardKey(), JSON.stringify(saved));
+      }
+      btn.textContent = 'Saved';
+    });
+  });
+
+  wrap.querySelectorAll('[data-open-lightbox]').forEach((img) => {
+    img.addEventListener('click', () => {
+      const id = img.getAttribute('data-open-lightbox');
+      const item = images.find((x, idx) => `${x.category}_${idx}_${x.style}`.replace(/\s+/g, '_').toLowerCase() === id);
+      if (!item) return;
+      document.getElementById('lightboxTitle').textContent = item.title;
+      document.getElementById('lightboxImage').src = item.src.replace('w=400', 'w=1200');
+      document.getElementById('lightboxMeta').innerHTML = `<strong>${item.style}</strong> • ${item.category}`;
+      document.getElementById('lightbox').style.display = 'flex';
+    });
+  });
+}
+
+document.getElementById('closeLightbox').addEventListener('click', () => {
+  document.getElementById('lightbox').style.display = 'none';
+});
+
+document.getElementById('lightbox').addEventListener('click', (event) => {
+  if (event.target.id === 'lightbox') document.getElementById('lightbox').style.display = 'none';
+});
+
+function responsiveMasonry() {
+  const m = document.getElementById('masonry');
+  if (window.innerWidth < 700) m.style.columnCount = 1;
+  else if (window.innerWidth < 1050) m.style.columnCount = 2;
+  else m.style.columnCount = 3;
+}
+window.addEventListener('resize', responsiveMasonry);
+
+renderTabs();
+responsiveMasonry();
+renderGallery();
+</script>
+{% endblock %}

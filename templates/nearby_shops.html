@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% block content %}
+<section style="max-width:1200px;margin:0 auto;padding:2rem 1.25rem;">
+  <h1 class="gradient-text" style="font-size:2rem;font-weight:800;">Furniture Shops Near You</h1>
+  <p style="color:#94a3b8;margin:.35rem 0 1rem;">Discover nearby furniture stores and explore trusted brands.</p>
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;align-items:end;margin-bottom:1rem;" id="nearbyTopGrid">
+    <div>
+      <label style="display:block;color:#94a3b8;font-size:.88rem;margin-bottom:.4rem;">Search by city</label>
+      <div style="display:flex;gap:.55rem;">
+        <input id="cityInput" type="text" placeholder="Enter city name (e.g., Hyderabad)" style="flex:1;background:#111827;border:1px solid #334155;color:#e2e8f0;border-radius:10px;padding:.75rem .85rem;">
+        <button id="citySearchBtn" class="btn btn-primary" style="border:none;">Search</button>
+      </div>
+    </div>
+    <div>
+      <button id="geoBtn" class="btn btn-outline" style="width:100%;justify-content:center;"><i class="fas fa-location-dot"></i> Find My Location</button>
+    </div>
+  </div>
+
+  <p id="searchStatus" style="color:#cbd5e1;margin-bottom:1rem;">Use city search or find your live location.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;" id="mapGrid">
+    <article class="card" style="padding:.75rem;">
+      <h3 style="margin-bottom:.55rem;">Google Maps View</h3>
+      <iframe id="googleMapFrame" src="https://www.google.com/maps?q=furniture+shops+near+Hyderabad&output=embed" style="width:100%;height:400px;border-radius:12px;border:none;"></iframe>
+    </article>
+    <article class="card" style="padding:.75rem;">
+      <h3 style="margin-bottom:.55rem;">OpenStreetMap View</h3>
+      <iframe id="osmFrame" src="https://www.openstreetmap.org/export/embed.html?bbox=78.30%2C17.27%2C78.60%2C17.52&layer=mapnik" style="width:100%;height:400px;border-radius:12px;border:none;"></iframe>
+    </article>
+  </div>
+
+  <article class="card" style="margin-bottom:1rem;">
+    <h3 style="margin-bottom:.75rem;">Nearby Search Results</h3>
+    <div id="resultsGrid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;"></div>
+  </article>
+
+  <article class="card">
+    <h3 style="margin-bottom:.85rem;">Popular Furniture Brands</h3>
+    <div id="brandGrid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;"></div>
+  </article>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const brands = [
+  { name: 'IKEA', desc: 'Affordable Scandinavian furniture and home accessories.', site: 'https://www.ikea.com/in/en/' },
+  { name: 'Pepperfry', desc: 'Wide online catalog with modern and classic furniture.', site: 'https://www.pepperfry.com/' },
+  { name: 'Urban Ladder', desc: 'Contemporary furniture and curated living collections.', site: 'https://www.urbanladder.com/' },
+  { name: 'HomeTown', desc: 'Home solutions, decor, and modular furniture options.', site: 'https://www.hometown.in/' },
+  { name: '@Home', desc: 'Stylish decor and furniture for every room.', site: 'https://www.athome.co.in/' },
+  { name: 'Godrej Interio', desc: 'Trusted Indian brand for home and office interiors.', site: 'https://www.godrejinterio.com/' },
+  { name: 'Durian', desc: 'Premium furniture and ergonomic seating collections.', site: 'https://www.durian.in/' },
+  { name: 'Nilkamal', desc: 'Practical and durable furniture for homes and offices.', site: 'https://www.nilkamalfurniture.com/' }
+];
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const toRad = (v) => (v * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function setStatus(message, isError = false) {
+  const el = document.getElementById('searchStatus');
+  el.textContent = message;
+  el.style.color = isError ? '#fca5a5' : '#cbd5e1';
+}
+
+function updateMapByCity(city) {
+  const q = encodeURIComponent('furniture shops near ' + city);
+  document.getElementById('googleMapFrame').src = `https://www.google.com/maps?q=${q}&output=embed`;
+}
+
+function updateOsmByCoords(lat, lon) {
+  const d = 0.08;
+  const left = (lon - d).toFixed(4);
+  const right = (lon + d).toFixed(4);
+  const top = (lat + d).toFixed(4);
+  const bottom = (lat - d).toFixed(4);
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${lat}%2C${lon}`;
+  document.getElementById('osmFrame').src = src;
+}
+
+function renderResults(items, baseLat = null, baseLon = null) {
+  const grid = document.getElementById('resultsGrid');
+  if (!items.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;border:1px dashed #334155;border-radius:10px;padding:1rem;color:#94a3b8;">No shops found. Try another city.</div>';
+    return;
+  }
+
+  grid.innerHTML = items.slice(0, 18).map((place) => {
+    const name = place.display_name ? place.display_name.split(',')[0] : 'Furniture Store';
+    const address = place.display_name || 'Address unavailable';
+    const lat = Number(place.lat);
+    const lon = Number(place.lon);
+    const distance = (baseLat !== null && baseLon !== null && Number.isFinite(lat) && Number.isFinite(lon))
+      ? `${haversineKm(baseLat, baseLon, lat, lon).toFixed(1)} km`
+      : 'N/A';
+    return `
+      <article style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:.8rem;">
+        <h4 style="margin-bottom:.35rem;">${name}</h4>
+        <p style="color:#94a3b8;font-size:.85rem;line-height:1.45;min-height:56px;">${address}</p>
+        <div style="margin-top:.45rem;color:#c4b5fd;font-size:.85rem;"><i class="fas fa-route"></i> Distance: ${distance}</div>
+      </article>
+    `;
+  }).join('');
+}
+
+async function searchShopsByCity(city) {
+  if (!city) return;
+  setStatus('Searching nearby shops...');
+  updateMapByCity(city);
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent('furniture shops near ' + city)}&format=json`;
+  try {
+    const response = await fetch(url, {
+      headers: { 'Accept': 'application/json' }
+    });
+    const data = await response.json();
+    renderResults(Array.isArray(data) ? data : []);
+    setStatus(`Showing results for ${city}.`);
+    if (Array.isArray(data) && data[0]) {
+      updateOsmByCoords(Number(data[0].lat), Number(data[0].lon));
+    }
+  } catch (error) {
+    setStatus('Could not fetch nearby shops right now.', true);
+    renderResults([]);
+  }
+}
+
+function renderBrands() {
+  const grid = document.getElementById('brandGrid');
+  grid.innerHTML = brands.map((brand) => `
+    <article style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:.8rem;display:flex;flex-direction:column;gap:.5rem;">
+      <div style="height:52px;border-radius:10px;border:1px dashed #475569;display:grid;place-items:center;color:#a5b4fc;font-weight:700;">${brand.name} Logo</div>
+      <h4>${brand.name}</h4>
+      <p style="color:#94a3b8;font-size:.85rem;line-height:1.45;min-height:56px;">${brand.desc}</p>
+      <a href="${brand.site}" target="_blank" rel="noopener" style="color:#a78bfa;text-decoration:none;font-size:.85rem;">Website Link</a>
+      <a href="${brand.site}" target="_blank" rel="noopener" class="btn btn-outline" style="justify-content:center;">View Catalog</a>
+    </article>
+  `).join('');
+}
+
+document.getElementById('citySearchBtn').addEventListener('click', () => {
+  const city = document.getElementById('cityInput').value.trim();
+  searchShopsByCity(city || 'Hyderabad');
+});
+
+document.getElementById('cityInput').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    document.getElementById('citySearchBtn').click();
+  }
+});
+
+document.getElementById('geoBtn').addEventListener('click', () => {
+  if (!navigator.geolocation) {
+    setStatus('Geolocation is not supported by your browser.', true);
+    return;
+  }
+
+  setStatus('Searching nearby shops...');
+  navigator.geolocation.getCurrentPosition(async (position) => {
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+    updateOsmByCoords(lat, lon);
+    document.getElementById('googleMapFrame').src = `https://www.google.com/maps?q=furniture+shops+near+${lat},${lon}&output=embed`;
+
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent('furniture shops near ' + lat + ',' + lon)}&format=json`;
+    try {
+      const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const data = await response.json();
+      renderResults(Array.isArray(data) ? data : [], lat, lon);
+      setStatus('Nearby shops loaded for your location.');
+    } catch (error) {
+      setStatus('Location found, but shop results failed to load.', true);
+    }
+  }, () => {
+    setStatus('Unable to retrieve your location.', true);
+  });
+});
+
+function responsiveLayout() {
+  const top = document.getElementById('nearbyTopGrid');
+  const maps = document.getElementById('mapGrid');
+  const results = document.getElementById('resultsGrid');
+  const brands = document.getElementById('brandGrid');
+  if (window.innerWidth < 800) {
+    top.style.gridTemplateColumns = '1fr';
+    maps.style.gridTemplateColumns = '1fr';
+    results.style.gridTemplateColumns = '1fr';
+    brands.style.gridTemplateColumns = '1fr';
+  } else if (window.innerWidth < 1050) {
+    top.style.gridTemplateColumns = '1fr';
+    maps.style.gridTemplateColumns = '1fr';
+    results.style.gridTemplateColumns = '1fr 1fr';
+    brands.style.gridTemplateColumns = '1fr 1fr';
+  } else {
+    top.style.gridTemplateColumns = '2fr 1fr';
+    maps.style.gridTemplateColumns = '1fr 1fr';
+    results.style.gridTemplateColumns = 'repeat(3,minmax(0,1fr))';
+    brands.style.gridTemplateColumns = 'repeat(4,minmax(0,1fr))';
+  }
+}
+
+window.addEventListener('resize', responsiveLayout);
+renderBrands();
+responsiveLayout();
+searchShopsByCity('Hyderabad');
+</script>
+{% endblock %}

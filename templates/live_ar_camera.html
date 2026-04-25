@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block content %}
+<section style="max-width:1200px;margin:0 auto;padding:2rem 1.25rem;">
+  <h1 class="gradient-text" style="font-size:2rem;font-weight:800;">Live AR Room Visualizer</h1>
+  <p style="color:#94a3b8;margin:.35rem 0 1rem;">Preview furniture ideas live through your camera before finalizing your design.</p>
+
+  <div style="display:grid;grid-template-columns:320px 1fr;gap:1rem;" id="arGrid">
+    <aside class="card">
+      <h3 style="margin-bottom:.75rem;">Instructions</h3>
+      <ol style="display:grid;gap:.55rem;padding-left:1.15rem;color:#cbd5e1;line-height:1.45;">
+        <li>Allow camera access</li>
+        <li>Point at your room</li>
+        <li>Select furniture to place</li>
+        <li>Take screenshot</li>
+      </ol>
+
+      <h4 style="margin:1rem 0 .55rem;">Furniture Selector</h4>
+      <div id="selectorGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:.55rem;"></div>
+
+      <div style="display:grid;gap:.55rem;margin-top:1rem;">
+        <button id="screenshotBtn" class="btn btn-primary" style="justify-content:center;"><i class="fas fa-camera"></i> Take Screenshot</button>
+        <button id="resetBtn" class="btn btn-outline" style="justify-content:center;"><i class="fas fa-rotate-left"></i> Start Over</button>
+      </div>
+      <p id="arStatus" style="margin-top:.75rem;color:#cbd5e1;">Waiting for camera permission...</p>
+    </aside>
+
+    <article class="card" style="padding:.75rem;">
+      <div style="position:relative;border-radius:12px;overflow:hidden;border:1px solid #334155;background:#020617;">
+        <video id="video" autoplay playsinline style="width:100%;display:block;min-height:420px;object-fit:cover;"></video>
+        <div id="overlayTag" style="position:absolute;right:10px;top:10px;padding:.35rem .65rem;background:#7c3aedcc;color:#fff;border-radius:999px;font-size:.8rem;display:none;"></div>
+        <div id="cameraPlaceholder" style="position:absolute;inset:0;display:grid;place-items:center;color:#64748b;">Camera feed will appear here</div>
+      </div>
+    </article>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const furnitureOptions = [
+  { name: 'Sofa', icon: 'fa-couch' },
+  { name: 'Chair', icon: 'fa-chair' },
+  { name: 'Table', icon: 'fa-table' },
+  { name: 'Lamp', icon: 'fa-lightbulb' },
+  { name: 'Shelf', icon: 'fa-book-open' },
+  { name: 'Bed', icon: 'fa-bed' },
+];
+
+const video = document.getElementById('video');
+const statusEl = document.getElementById('arStatus');
+const overlayTag = document.getElementById('overlayTag');
+const placeholder = document.getElementById('cameraPlaceholder');
+let streamRef = null;
+
+function setStatus(text, isError = false) {
+  statusEl.textContent = text;
+  statusEl.style.color = isError ? '#fca5a5' : '#cbd5e1';
+}
+
+function renderSelectors() {
+  const grid = document.getElementById('selectorGrid');
+  grid.innerHTML = furnitureOptions.map((item) => `
+    <button data-furniture="${item.name}" style="padding:.55rem;border:1px solid #334155;border-radius:10px;background:#0f172a;color:#e2e8f0;display:flex;align-items:center;gap:.45rem;justify-content:center;cursor:pointer;">
+      <i class="fas ${item.icon}"></i> ${item.name}
+    </button>
+  `).join('');
+
+  grid.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      overlayTag.textContent = `Placing: ${btn.dataset.furniture}`;
+      overlayTag.style.display = 'inline-block';
+      setStatus(`${btn.dataset.furniture} selected. Position your camera and capture.`);
+    });
+  });
+}
+
+async function initCamera() {
+  try {
+    streamRef = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    video.srcObject = streamRef;
+    placeholder.style.display = 'none';
+    setStatus('Camera access granted. Select furniture and take screenshot.');
+  } catch (error) {
+    setStatus('Unable to access camera. Please allow camera permissions.', true);
+  }
+}
+
+function takeScreenshot() {
+  if (!video.videoWidth || !video.videoHeight) {
+    setStatus('Camera feed is not ready yet.', true);
+    return;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  if (overlayTag.style.display !== 'none') {
+    ctx.fillStyle = 'rgba(124,58,237,0.85)';
+    ctx.fillRect(16, 16, 280, 38);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '18px Segoe UI';
+    ctx.fillText(overlayTag.textContent, 26, 42);
+  }
+  const link = document.createElement('a');
+  link.download = `ar-visualizer-${Date.now()}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  setStatus('Screenshot downloaded successfully.');
+}
+
+function startOver() {
+  overlayTag.style.display = 'none';
+  setStatus('Reset done. Select furniture and continue.');
+}
+
+document.getElementById('screenshotBtn').addEventListener('click', takeScreenshot);
+document.getElementById('resetBtn').addEventListener('click', startOver);
+
+function responsiveAr() {
+  const grid = document.getElementById('arGrid');
+  grid.style.gridTemplateColumns = window.innerWidth < 960 ? '1fr' : '320px 1fr';
+}
+window.addEventListener('resize', responsiveAr);
+
+renderSelectors();
+responsiveAr();
+initCamera();
+
+window.addEventListener('beforeunload', () => {
+  if (streamRef) {
+    streamRef.getTracks().forEach((track) => track.stop());
+  }
+});
+</script>
+{% endblock %}

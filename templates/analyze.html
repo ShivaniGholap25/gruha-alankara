@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:900px;margin:0 auto;padding:2rem;">
+  <div style="text-align:center;margin-bottom:2rem;">
+    <h1 style="font-size:2rem;font-weight:700;background:linear-gradient(135deg,#818cf8,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Room Analysis</h1>
+    <p style="color:#94a3b8;margin-top:0.5rem;">Upload your room photo and AI will analyze dimensions, lighting, colors and suggest styles.</p>
+  </div>
+
+  <div style="background:#1a1a2e;border:1px solid #2d3748;border-radius:16px;padding:2rem;margin-bottom:1.5rem;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;">
+      <div style="width:32px;height:32px;background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:0.85rem;">1</div>
+      <h3 style="font-weight:700;">Upload Room Photo</h3>
+    </div>
+
+    <div id="drop-zone" onclick="openFileDialog()" style="border:2px dashed #2d3748;border-radius:12px;padding:2.5rem;text-align:center;cursor:pointer;transition:all 0.2s;"
+      onmouseover="this.style.borderColor='#7c3aed';this.style.background='rgba(124,58,237,0.05)'"
+      onmouseout="this.style.borderColor='#2d3748';this.style.background='transparent'">
+      <i class="fas fa-cloud-upload-alt" style="font-size:3rem;color:#818cf8;display:block;margin-bottom:1rem;"></i>
+      <p style="color:#e2e8f0;font-weight:600;margin-bottom:0.5rem;">Click to upload your room photo</p>
+      <p style="color:#6b7280;font-size:0.85rem;">Supports JPG, PNG, WEBP, GIF</p>
+    </div>
+
+    <input type="file" id="file-input" accept="image/*" style="display:none" onchange="previewImage(this)">
+
+    <div id="preview-container" style="display:none;margin-top:1rem;position:relative;">
+      <img id="preview-img" style="width:100%;max-height:350px;object-fit:cover;border-radius:12px;">
+      <button onclick="document.getElementById('file-input').click()" style="position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,0.75);color:white;border:none;border-radius:8px;padding:0.5rem 1rem;cursor:pointer;">
+        <i class="fas fa-sync" style="margin-right:4px;"></i>Change Photo
+      </button>
+    </div>
+  </div>
+
+  <div style="background:#1a1a2e;border:1px solid #2d3748;border-radius:16px;padding:2rem;margin-bottom:1.5rem;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;">
+      <div style="width:32px;height:32px;background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:0.85rem;">2</div>
+      <h3 style="font-weight:700;">Select Room Type</h3>
+    </div>
+
+    <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
+      <select id="room-type" style="background:#0d0d1a;border:1px solid #2d3748;color:#e2e8f0;border-radius:8px;padding:0.6rem 1rem;font-size:0.95rem;min-width:200px;">
+        <option>Living Room</option>
+        <option>Bedroom</option>
+        <option>Kitchen</option>
+        <option>Bathroom</option>
+        <option>Office</option>
+        <option>Dining Room</option>
+      </select>
+      <button onclick="analyzeRoom()" id="analyze-btn" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border:none;border-radius:8px;padding:0.7rem 2rem;font-size:0.95rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+        <i class="fas fa-search"></i> Analyze Room
+      </button>
+    </div>
+  </div>
+
+  <div id="loading-section" style="display:none;text-align:center;padding:3rem;background:#1a1a2e;border:1px solid #2d3748;border-radius:16px;margin-bottom:1.5rem;">
+    <div style="width:64px;height:64px;border:4px solid #2d3748;border-top-color:#7c3aed;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 1.5rem;"></div>
+    <p style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">Analyzing your room...</p>
+  </div>
+
+  <div id="results-section" style="display:none;"></div>
+</div>
+
+<style>
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+
+<script>
+function openFileDialog() {
+  document.getElementById('file-input').click();
+}
+
+function previewImage(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      document.getElementById('preview-img').src = e.target.result;
+      document.getElementById('drop-zone').style.display = 'none';
+      document.getElementById('preview-container').style.display = 'block';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+async function analyzeRoom() {
+  const file = document.getElementById('file-input').files[0];
+  if (!file) {
+    alert('Please upload a room photo first.');
+    return;
+  }
+
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true;
+  btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Analyzing...";
+  document.getElementById('loading-section').style.display = 'block';
+
+  const fd = new FormData();
+  fd.append('image', file);
+  fd.append('room_type', document.getElementById('room-type').value);
+
+  try {
+    const res = await fetch('/analyze-room', { method: 'POST', body: fd });
+    const data = await res.json();
+    document.getElementById('loading-section').style.display = 'none';
+
+    if (!res.ok || data.error) {
+      throw new Error(data.error || 'Analysis failed');
+    }
+
+    const styles = (data.style_recommendations || []).map((s, i) => `<div style='background:#16213e;border:1px solid #2d3748;border-radius:10px;padding:0.7rem 1rem;'><span style='font-size:0.75rem;color:#94a3b8;'>#${i+1}</span> <strong>${s.style}</strong> (${s.score}%)</div>`).join('');
+    document.getElementById('results-section').innerHTML = `
+      <div style="background:#1a1a2e;border:1px solid #2d3748;border-radius:16px;padding:1.5rem;">
+        <h3 style="margin-bottom:0.8rem;">Analysis Complete</h3>
+        <p style="color:#94a3b8;line-height:1.6;">Dimensions: ${data.dimensions.width} x ${data.dimensions.length} x ${data.dimensions.height} ft (${data.dimensions.area} sq ft)</p>
+        <p style="color:#94a3b8;line-height:1.6;">Lighting: ${data.lighting.quality} (${data.lighting.brightness}/255)</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:1rem 0;">${(data.colors || []).map(c => `<span style='width:28px;height:28px;border-radius:50%;display:inline-block;background:${c};border:1px solid #334155'></span>`).join('')}</div>
+        <div style="display:grid;gap:0.5rem;">${styles}</div>
+        <div style="margin-top:1rem;"><a href="/design" style="display:inline-flex;align-items:center;gap:8px;padding:0.75rem 1.2rem;background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:8px;color:#fff;text-decoration:none;font-weight:700;">Proceed to Design Studio</a></div>
+      </div>
+    `;
+    document.getElementById('results-section').style.display = 'block';
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+  } catch (e) {
+    document.getElementById('loading-section').style.display = 'none';
+    alert(e.message || 'Analysis failed.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "<i class='fas fa-search'></i> Analyze Room";
+  }
+}
+</script>
+{% endblock %}

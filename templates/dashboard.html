@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#0d0d1a;color:#e2e8f0;font-family:"Segoe UI",sans-serif}
+.container{max-width:1200px;margin:0 auto;padding:2rem}.title{font-size:2rem;background:linear-gradient(135deg,#7c3aed,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.welcome{margin:.6rem 0 1.5rem;color:#94a3b8}
+.section{background:#1a1a2e;border:1px solid #2d3748;border-radius:14px;padding:1.2rem;margin-bottom:1.4rem}
+.section h2{margin-bottom:1rem}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}
+.card{background:#101427;border:1px solid #303b52;border-radius:12px;padding:1rem}.card h3{margin-bottom:.5rem}.muted{color:#94a3b8;font-size:.92rem}
+.stat-val{font-size:1.6rem;font-weight:800;color:#ddd6fe}
+.actions{display:flex;gap:.6rem;flex-wrap:wrap}.btn{padding:.65rem .95rem;border-radius:10px;border:1px solid #334155;background:#111827;color:#e2e8f0;text-decoration:none;display:inline-flex;align-items:center;gap:6px}.btn.primary{background:linear-gradient(135deg,#7c3aed,#a855f7);border:none}
+.design-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem}.design-item{background:#101427;border:1px solid #334155;border-radius:12px;padding:.7rem}.thumb{width:100%;height:90px;border-radius:10px;object-fit:cover;border:1px solid #334155;background:#0f172a}
+.table-wrap{overflow:auto}.tbl{width:100%;border-collapse:collapse}.tbl th,.tbl td{padding:.75rem;border-bottom:1px solid #273142;text-align:left}.tbl th{color:#cbd5e1}
+.badge{padding:.25rem .55rem;border-radius:999px;font-size:.8rem;background:#1e293b;color:#bfdbfe}
+.timeline{display:grid;gap:.65rem}.timeline-item{background:#101427;border:1px solid #2f3a4f;border-radius:10px;padding:.65rem .75rem;display:flex;justify-content:space-between;gap:.8rem;align-items:center}
+footer{text-align:center;color:#94a3b8;border-top:1px solid #2d3748;padding:1rem;margin-top:2rem}
+@media (max-width:900px){.grid{grid-template-columns:1fr 1fr}.design-grid{grid-template-columns:1fr 1fr}}@media (max-width:640px){.grid,.design-grid{grid-template-columns:1fr}}
+
+
+</style>
+<div class="container">
+  <h1 class="title">Dashboard</h1>
+  <p class="welcome">Welcome {{ user.username if user else 'Designer' }}. Monitor your projects, bookings and activity from one place.</p>
+
+  <section class="section">
+    <h2>Stats Overview</h2>
+    <div class="grid">
+      <article class="card"><h3>Total Designs</h3><div id="totalDesigns" class="stat-val">0</div></article>
+      <article class="card"><h3>Total Bookings</h3><div id="totalBookings" class="stat-val">0</div></article>
+      <article class="card"><h3>Favorite Style</h3><div id="favoriteStyle" class="stat-val" style="font-size:1.1rem">-</div></article>
+      <article class="card"><h3>Most Used Room</h3><div id="mostUsedRoom" class="stat-val" style="font-size:1.1rem">-</div></article>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Quick Actions</h2>
+    <div class="actions">
+      <a class="btn primary" href="/design"><i class="fas fa-wand-magic-sparkles"></i> New Design</a>
+      <a class="btn" href="/analyze"><i class="fas fa-camera"></i> Analyze Room</a>
+      <a class="btn" href="/catalog"><i class="fas fa-book"></i> View Catalog</a>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Recent Designs</h2>
+    <div id="recentDesigns" class="design-grid"></div>
+  </section>
+
+  <section class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;margin-bottom:.8rem;">
+      <h2 style="margin:0;">Recent Bookings</h2>
+      <div class="muted">Total: {{ bookings|length }}</div>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Furniture</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>
+          {% if bookings %}
+            {% for booking in bookings[:3] %}
+            <tr>
+              <td>{{ booking.furniture.name if booking.furniture else 'N/A' }}</td>
+              <td><span class="badge" style="background:{% if booking.status == 'confirmed' %}#14532d{% elif booking.status == 'cancelled' %}#7f1d1d{% else %}#78350f{% endif %};color:{% if booking.status == 'confirmed' %}#bbf7d0{% elif booking.status == 'cancelled' %}#fecaca{% else %}#fde68a{% endif %};">{{ booking.status }}</span></td>
+              <td>{{ booking.booking_date.strftime('%Y-%m-%d %H:%M') if booking.booking_date else 'N/A' }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="3" class="muted">No bookings found.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:.8rem;">
+      <a class="btn" href="/my-bookings"><i class="fas fa-list"></i> View All Bookings</a>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Activity Timeline</h2>
+    <div id="timeline" class="timeline"></div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fmtDate(ts) {
+  if (!ts) return 'N/A';
+  return new Date(ts).toLocaleString();
+}
+
+async function loadStats() {
+  try {
+    const response = await fetch('/dashboard/stats');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to load stats');
+
+    document.getElementById('totalDesigns').textContent = data.total_designs || 0;
+    document.getElementById('totalBookings').textContent = data.total_bookings || 0;
+    document.getElementById('favoriteStyle').textContent = data.favorite_style || '-';
+    document.getElementById('mostUsedRoom').textContent = data.most_used_room || '-';
+
+    const recent = document.getElementById('recentDesigns');
+    recent.innerHTML = (data.recent_designs || []).length
+      ? data.recent_designs.map((design) => {
+          const img = design.image_path ? `/${String(design.image_path).replace(/^\/+/, '')}` : '';
+          return `
+            <article class="design-item">
+              ${img ? `<img class="thumb" src="${img}" alt="${design.title}">` : '<div class="thumb" style="display:grid;place-items:center;color:#64748b;">No image</div>'}
+              <h4 style="margin-top:.55rem">${design.title}</h4>
+              <p class="muted">${design.style_theme} | ${design.room_type}</p>
+              <p class="muted">${fmtDate(design.created_at)}</p>
+            </article>
+          `;
+        }).join('')
+      : '<article class="design-item"><p class="muted">No designs yet.</p></article>';
+
+    const timeline = document.getElementById('timeline');
+    timeline.innerHTML = (data.timeline || []).length
+      ? data.timeline.map((item) => `
+          <div class="timeline-item">
+            <span><i class="fas ${item.type === 'booking' ? 'fa-calendar-check' : 'fa-pen-ruler'}" style="margin-right:8px;color:#c4b5fd"></i>${item.label}</span>
+            <span class="muted">${fmtDate(item.timestamp)}</span>
+          </div>
+        `).join('')
+      : '<div class="timeline-item"><span class="muted">No recent activity.</span></div>';
+  } catch (error) {
+    document.getElementById('timeline').innerHTML = `<div class="timeline-item"><span class="muted">${error.message || 'Unable to load dashboard data.'}</span></div>`;
+  }
+}
+
+loadStats();
+</script>
+{% endblock %}

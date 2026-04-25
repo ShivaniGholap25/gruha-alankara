@@ -1,0 +1,7 @@
+.analyze-wrap { max-width: 900px; margin: 0 auto; padding: 2rem; }
+.analyze-step { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 2rem; margin-bottom: 1.5rem; }
+.step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
+.step-number { width: 32px; height: 32px; background: var(--grad); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 0.85rem; }
+.drop-zone { border: 2px dashed var(--line); border-radius: 12px; padding: 2.5rem; text-align: center; cursor: pointer; transition: all 0.2s; }
+.drop-zone:hover { border-color: var(--accent); background: rgba(124,58,237,0.05); }
+.loading-spinner { width: 64px; height: 64px; border: 4px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1.5rem; }

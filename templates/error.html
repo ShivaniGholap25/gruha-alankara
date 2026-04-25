@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#0d0d1a;color:#e2e8f0;font-family:"Segoe UI",sans-serif;min-height:100vh;display:flex;flex-direction:column}
+.main{flex:1;display:grid;place-items:center;padding:2rem;background:radial-gradient(circle at top,#1f1b4e 0%,#0d0d1a 60%)}
+.box{max-width:620px;width:100%;padding:2.2rem;border:1px solid #2d3748;border-radius:16px;background:#1a1a2e;text-align:center}
+.code{font-size:clamp(3rem,10vw,5rem);font-weight:800;line-height:1;background:linear-gradient(135deg,#f43f5e,#fb7185);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.75rem}
+.msg{margin:.8rem 0 1.6rem;color:#cbd5e1;font-size:1.1rem;line-height:1.6}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:.85rem 1.2rem;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;text-decoration:none;font-weight:700}
+</style>
+<main class="main">
+  <section class="box">
+    <div class="code">{{ code }}</div>
+    <p class="msg">{{ message }}</p>
+    <a class="btn" href="/"><i class="fas fa-arrow-left"></i>Back to Home</a>
+  </section>
+</main>
+{% endblock %}
