@@ -186,8 +186,10 @@ def create_app(test_config=None):
         db.session.commit()
         return jsonify({"success": True, "message": "Registration successful. Please log in."})
 
-    @app.route("/login", methods=["POST"])
+    @app.route("/login", methods=["GET", "POST"])
     def login():
+        if request.method == "GET":
+            return redirect("http://localhost:5173/login")
         data = request.get_json(silent=True) or request.form.to_dict()
         email = str(data.get("email", "")).strip().lower()
         password = str(data.get("password", ""))
