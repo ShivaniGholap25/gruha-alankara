@@ -1,4 +1,6 @@
-const BASE_URL = '';
+// In production, VITE_API_URL points to the Render backend URL
+// In dev, empty string uses Vite proxy to localhost:5000
+const BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export async function apiFetch(path, options = {}) {
   const defaultOptions = {
@@ -26,12 +28,12 @@ export async function apiFetch(path, options = {}) {
 
 export const api = {
   get: (path) => apiFetch(path, { method: 'GET' }),
-  post: (path, body) => apiFetch(path, { 
-    method: 'POST', 
+  post: (path, body) => apiFetch(path, {
+    method: 'POST',
     body: body instanceof FormData ? body : JSON.stringify(body)
   }),
-  put: (path, body) => apiFetch(path, { 
-    method: 'PUT', 
+  put: (path, body) => apiFetch(path, {
+    method: 'PUT',
     body: body instanceof FormData ? body : JSON.stringify(body)
   }),
   delete: (path) => apiFetch(path, { method: 'DELETE' }),

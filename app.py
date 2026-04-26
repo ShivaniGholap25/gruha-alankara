@@ -46,8 +46,13 @@ def create_app(test_config=None):
     init_db(app)
     
     from flask_cors import CORS
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        os.environ.get("FRONTEND_URL", ""),
+    ]
     CORS(app,
-         origins=["http://localhost:5173", "http://localhost:5174"],
+         origins=[o for o in allowed_origins if o],
          supports_credentials=True)
 
     upload_dir = os.path.join(app.root_path, app.config.get("UPLOAD_FOLDER", "uploads"))
