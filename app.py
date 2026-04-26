@@ -6,6 +6,7 @@ import json
 import time
 import logging
 import random
+import jwt
 from datetime import datetime
 from collections import Counter
 from io import BytesIO
@@ -152,19 +153,18 @@ def create_app(test_config=None):
         return None
 
     def _get_user_id():
-        """Get user_id from session cookie or Authorization Bearer token."""
-        user_id = session.get("user_id")
-        if not user_id:
-            auth_header = request.headers.get("Authorization", "")
-            if auth_header.startswith("Bearer "):
-                try:
-                    import base64
-                    token = auth_header.split(" ", 1)[1]
-                    decoded = base64.b64decode(token.encode()).decode()
-                    user_id = int(decoded.split(":")[0])
-                except Exception:
-                    pass
-        return user_id
+        """Get user_id from JWT Bearer token (primary) or session cookie (fallback)."""
+        # 1. Try Bearer token first
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                token = auth_header.split(" ", 1)[1]
+                data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
+                return data.get("user_id")
+            except Exception:
+                pass
+        # 2. Fallback to session cookie
+        return session.get("user_id")
 
     @app.route("/uploads/<path:filename>")
     def uploaded_file(filename):
@@ -172,18 +172,7 @@ def create_app(test_config=None):
 
     @app.route("/api/me")
     def api_me():
-        # Support both session cookie and Authorization Bearer token
-        user_id = session.get("user_id")
-        if not user_id:
-            auth_header = request.headers.get("Authorization", "")
-            if auth_header.startswith("Bearer "):
-                try:
-                    import base64
-                    token = auth_header.split(" ", 1)[1]
-                    decoded = base64.b64decode(token.encode()).decode()
-                    user_id = int(decoded.split(":")[0])
-                except Exception:
-                    return jsonify({"authenticated": False}), 401
+        user_id = _get_user_id()
         if not user_id:
             return jsonify({"authenticated": False}), 401
         user = User.query.get(user_id)
@@ -235,9 +224,12 @@ def create_app(test_config=None):
         session["username"] = user.username
         session.permanent = True
 
-        # Generate a simple token for cross-domain auth (Vercel → Render)
-        import base64
-        token = base64.b64encode(f"{user.id}:{user.username}:{user.password_hash[-8:]}".encode()).decode()
+        # Generate JWT token for cross-domain auth (Vercel → Render)
+        token = jwt.encode(
+            {"user_id": user.id},
+            app.config["SECRET_KEY"],
+            algorithm="HS256"
+        )
 
         return jsonify({
             "success": True,
