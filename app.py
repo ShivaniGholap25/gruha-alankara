@@ -42,21 +42,20 @@ def create_app(test_config=None):
     app.config.from_object("config")
     if test_config:
         app.config.update(test_config)
-    
-    init_db(app)
-    
-    from flask_cors import CORS
-    allowed_origins = [
+
+    frontend_url = os.environ.get("FRONTEND_URL", "")
+    allowed_origins = [o for o in [
         "http://localhost:5173",
         "http://localhost:5174",
-        "https://gruha-alankara-9ku2.onrender.com",
-        os.environ.get("FRONTEND_URL", ""),
-    ]
+        frontend_url,
+    ] if o]
     CORS(app,
-         origins=[o for o in allowed_origins if o],
+         origins=allowed_origins,
          supports_credentials=True,
          allow_headers=["Content-Type", "Authorization"],
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+
+    init_db(app)
 
     upload_dir = os.path.join(app.root_path, app.config.get("UPLOAD_FOLDER", "uploads"))
     os.makedirs(upload_dir, exist_ok=True)
