@@ -42,8 +42,13 @@ def create_app(test_config=None):
     app.config.from_object("config")
     if test_config:
         app.config.update(test_config)
-    CORS(app, supports_credentials=True, origins=["http://localhost:5173", "http://127.0.0.1:5173"])
+    
     init_db(app)
+    
+    from flask_cors import CORS
+    CORS(app,
+         origins=["http://localhost:5173", "http://localhost:5174"],
+         supports_credentials=True)
 
     upload_dir = os.path.join(app.root_path, app.config.get("UPLOAD_FOLDER", "uploads"))
     os.makedirs(upload_dir, exist_ok=True)
@@ -181,20 +186,11 @@ def create_app(test_config=None):
         db.session.commit()
         return jsonify({"success": True, "message": "Registration successful. Please log in."})
 
-    @app.route("/login", methods=["GET", "POST"])
+    @app.route("/login", methods=["POST"])
     def login():
-        if request.method == "GET":
-            return jsonify({"page": "login", "authenticated": False})
-
-        data = request.get_json(silent=True) or {}
-        if not data:
-            data = request.form.to_dict()
-
+        data = request.get_json(silent=True) or request.form.to_dict()
         email = str(data.get("email", "")).strip().lower()
         password = str(data.get("password", ""))
-
-        if not email or not password:
-            return jsonify({"success": False, "error": "Email and password are required"}), 400
 
         user = User.query.filter_by(email=email).first()
         if not user or not user.check_password(password):
@@ -202,10 +198,8 @@ def create_app(test_config=None):
 
         session["user_id"] = user.id
         session["username"] = user.username
-        session.permanent = True
         return jsonify({
             "success": True,
-            "message": "Login successful",
             "user": {
                 "id": user.id,
                 "username": user.username,

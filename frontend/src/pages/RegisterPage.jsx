@@ -1,40 +1,63 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import './LoginPage.css';
 
 export default function RegisterPage() {
-  const { register: doRegister } = useAuth();
-  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    if (!username || !email || !password) {
+      setError('Please fill in all fields');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      setLoading(false);
+      return;
+    }
+
     try {
-      await doRegister(username, email, password);
-      navigate('/login');
-    } catch (err) {
-      setError(err.data?.error || 'Registration failed.');
+      const result = await register(username, email, password);
+      
+      if (result.success) {
+        navigate('/login', { 
+          state: { message: 'Registration successful! Please log in.' }
+        });
+      } else {
+        setError(result.error || 'Registration failed');
+      }
+    } catch (error) {
+      setError('Network error. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="page-wrapper">
-      <div className="auth-card fade-in">
-        <div className="auth-icon"><i className="fas fa-user-plus"></i></div>
-        <h1 className="gradient-text">Create Account</h1>
-        <p className="subtitle">Join Gruha Alankara and start designing your dream space</p>
+    <div className="auth-wrapper">
+      <div className="auth-card">
+        <div className="auth-icon">
+          <i className="fas fa-user-plus"></i>
+        </div>
+        <h1>Create Account</h1>
+        <p className="auth-subtitle">Join Gruha Alankara to start designing</p>
 
         {error && (
-          <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.75rem', borderRadius: 8, marginBottom: '1rem', fontSize: '0.9rem' }}>
-            {error}
+          <div className="auth-error">
+            <i className="fas fa-exclamation-circle"></i> {error}
           </div>
         )}
 
@@ -43,30 +66,60 @@ export default function RegisterPage() {
             <label>Username</label>
             <div className="input-wrapper">
               <i className="fas fa-user input-icon"></i>
-              <input className="form-input" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Your name" required />
+              <input
+                type="text"
+                placeholder="Your username"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                required
+                disabled={loading}
+              />
             </div>
           </div>
+
           <div className="form-group">
             <label>Email Address</label>
             <div className="input-wrapper">
               <i className="fas fa-envelope input-icon"></i>
-              <input className="form-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required />
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                disabled={loading}
+              />
             </div>
           </div>
+
           <div className="form-group">
             <label>Password</label>
             <div className="input-wrapper">
               <i className="fas fa-lock input-icon"></i>
-              <input className="form-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Create a strong password" required />
+              <input
+                type="password"
+                placeholder="At least 6 characters"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                disabled={loading}
+                minLength={6}
+              />
             </div>
           </div>
+
           <button type="submit" className="btn-submit" disabled={loading}>
-            <i className="fas fa-user-plus"></i>
-            {loading ? 'Creating...' : 'Create Account'}
+            {loading ? (
+              <><i className="fas fa-spinner fa-spin"></i> Creating Account...</>
+            ) : (
+              <><i className="fas fa-user-plus"></i> Create Account</>
+            )}
           </button>
         </form>
-        <div className="divider"><span>or</span></div>
-        <div className="auth-footer">Already have an account? <Link to="/login">Sign in here</Link></div>
+
+        <div className="auth-footer">
+          Already have an account? <Link to="/login">Sign in here</Link>
+        </div>
       </div>
     </div>
   );
