@@ -54,7 +54,9 @@ def create_app(test_config=None):
     ]
     CORS(app,
          origins=[o for o in allowed_origins if o],
-         supports_credentials=True)
+         supports_credentials=True,
+         allow_headers=["Content-Type", "Authorization"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
     upload_dir = os.path.join(app.root_path, app.config.get("UPLOAD_FOLDER", "uploads"))
     os.makedirs(upload_dir, exist_ok=True)

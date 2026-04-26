@@ -26,7 +26,7 @@ export default function AnalyzeRoomPage() {
     fd.append('image', file);
     fd.append('room_type', roomType);
     try {
-      const res = await fetch('/analyze-room', { method: 'POST', body: fd, credentials: 'include' });
+      const res = await fetch((import.meta.env.VITE_API_URL || '') + '/analyze-room', { method: 'POST', body: fd, credentials: 'include' });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'Analysis failed');
       setResult(data);
