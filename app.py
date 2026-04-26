@@ -49,6 +49,7 @@ def create_app(test_config=None):
     allowed_origins = [
         "http://localhost:5173",
         "http://localhost:5174",
+        "https://gruha-alankara-9ku2.onrender.com",
         os.environ.get("FRONTEND_URL", ""),
     ]
     CORS(app,
