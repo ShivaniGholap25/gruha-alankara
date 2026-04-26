@@ -1,12 +1,16 @@
-// In production, VITE_API_URL points to the Render backend URL
-// In dev, empty string uses Vite proxy to localhost:5000
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
+function getToken() {
+  return localStorage.getItem('gruha_token') || '';
+}
+
 export async function apiFetch(path, options = {}) {
+  const token = getToken();
   const defaultOptions = {
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       ...options.headers,
     },
     ...options,

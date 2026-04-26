@@ -151,13 +151,39 @@ def create_app(test_config=None):
                 return {"type": "color", "target": "floor", "value": color}
         return None
 
+    def _get_user_id():
+        """Get user_id from session cookie or Authorization Bearer token."""
+        user_id = session.get("user_id")
+        if not user_id:
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                try:
+                    import base64
+                    token = auth_header.split(" ", 1)[1]
+                    decoded = base64.b64decode(token.encode()).decode()
+                    user_id = int(decoded.split(":")[0])
+                except Exception:
+                    pass
+        return user_id
+
     @app.route("/uploads/<path:filename>")
     def uploaded_file(filename):
         return send_from_directory(upload_dir, filename)
 
     @app.route("/api/me")
     def api_me():
+        # Support both session cookie and Authorization Bearer token
         user_id = session.get("user_id")
+        if not user_id:
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                try:
+                    import base64
+                    token = auth_header.split(" ", 1)[1]
+                    decoded = base64.b64decode(token.encode()).decode()
+                    user_id = int(decoded.split(":")[0])
+                except Exception:
+                    return jsonify({"authenticated": False}), 401
         if not user_id:
             return jsonify({"authenticated": False}), 401
         user = User.query.get(user_id)
@@ -207,8 +233,15 @@ def create_app(test_config=None):
 
         session["user_id"] = user.id
         session["username"] = user.username
+        session.permanent = True
+
+        # Generate a simple token for cross-domain auth (Vercel → Render)
+        import base64
+        token = base64.b64encode(f"{user.id}:{user.username}:{user.password_hash[-8:]}".encode()).decode()
+
         return jsonify({
             "success": True,
+            "token": token,
             "user": {
                 "id": user.id,
                 "username": user.username,
@@ -258,7 +291,7 @@ def create_app(test_config=None):
 
     @app.route("/book-furniture", methods=["POST"])
     def book_furniture():
-        user_id = session.get("user_id")
+        user_id = _get_user_id()
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
 
@@ -286,7 +319,7 @@ def create_app(test_config=None):
 
     @app.route("/my-bookings")
     def my_bookings():
-        user_id = session.get("user_id")
+        user_id = _get_user_id()
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
 
@@ -309,7 +342,7 @@ def create_app(test_config=None):
 
     @app.route("/cancel-booking/<int:id>", methods=["POST"])
     def cancel_booking(id):
-        user_id = session.get("user_id")
+        user_id = _get_user_id()
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
 
@@ -354,7 +387,7 @@ def create_app(test_config=None):
 
     @app.route("/dashboard/stats", methods=["GET"])
     def dashboard_stats():
-        user_id = session.get("user_id")
+        user_id = _get_user_id()
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
 
@@ -419,7 +452,7 @@ def create_app(test_config=None):
 
     @app.route("/get-designs", methods=["GET"])
     def get_designs():
-        user_id = session.get("user_id")
+        user_id = _get_user_id()
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
         designs = Design.query.filter_by(user_id=user_id).order_by(Design.created_at.desc()).all()
@@ -427,7 +460,7 @@ def create_app(test_config=None):
 
     @app.route("/design-config/<int:design_id>", methods=["GET"])
     def design_config(design_id):
-        user_id = session.get("user_id")
+        user_id = _get_user_id()
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
         design = Design.query.filter_by(id=design_id, user_id=user_id).first()
@@ -437,7 +470,7 @@ def create_app(test_config=None):
 
     @app.route("/delete-design/<int:id>", methods=["DELETE"])
     def delete_design(id):
-        user_id = session.get("user_id")
+        user_id = _get_user_id()
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
         design = Design.query.filter_by(id=id, user_id=user_id).first()
@@ -449,7 +482,7 @@ def create_app(test_config=None):
 
     @app.route("/duplicate-design/<int:id>", methods=["POST"])
     def duplicate_design(id):
-        user_id = session.get("user_id")
+        user_id = _get_user_id()
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
         source = Design.query.filter_by(id=id, user_id=user_id).first()
@@ -590,7 +623,7 @@ def create_app(test_config=None):
 
     @app.route("/save-design", methods=["POST"])
     def save_design():
-        user_id = session.get("user_id")
+        user_id = _get_user_id()
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
         payload = request.get_json(silent=True) or {}
@@ -707,7 +740,7 @@ def create_app(test_config=None):
 
     @app.route("/buddy", methods=["POST"])
     def buddy_chat():
-        user_id = session.get("user_id")
+        user_id = _get_user_id()
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
         payload = request.get_json(silent=True) or {}
