@@ -188,7 +188,16 @@ def create_app(test_config=None):
     @app.route("/health")
     def health():
         db.session.execute(text("SELECT 1"))
-        return jsonify({"status": "ok", "db": "connected"})
+        return jsonify({
+            "status": "ok",
+            "db": "connected",
+            "counts": {
+                "users": User.query.count(),
+                "designs": Design.query.count(),
+                "furniture": Furniture.query.count(),
+                "bookings": Booking.query.count(),
+            }
+        })
 
     @app.route("/register", methods=["GET", "POST"])
     def register():
@@ -307,7 +316,10 @@ def create_app(test_config=None):
         booking = Booking(user_id=user_id, furniture_id=furniture.id, status="pending")
         db.session.add(booking)
         db.session.commit()
-        return jsonify({"success": True, "booking_id": booking.id, "furniture_id": furniture.id})
+        # Immediately confirm
+        booking.status = "confirmed"
+        db.session.commit()
+        return jsonify({"success": True, "booking_id": booking.id, "furniture_id": furniture.id, "status": "confirmed"})
 
     @app.route("/my-bookings")
     def my_bookings():
@@ -640,17 +652,124 @@ def create_app(test_config=None):
         db.session.commit()
         return jsonify({"success": True, "design_id": design.id})
 
+    @app.route("/preview-composite", methods=["POST"])
+    def preview_composite():
+        """Overlay furniture labels on the uploaded room image using PIL."""
+        payload = request.get_json(silent=True) or {}
+        image_path_rel = payload.get("image_path", "")
+        furniture_names = payload.get("furniture_names", [])[:3]
+
+        if not image_path_rel:
+            return jsonify({"error": "image_path required"}), 400
+
+        full_path = os.path.join(app.root_path, image_path_rel.lstrip("/"))
+        if not os.path.exists(full_path):
+            return jsonify({"error": "Image not found"}), 404
+
+        try:
+            from PIL import ImageDraw, ImageFont
+            img = Image.open(full_path).convert("RGB")
+            draw = ImageDraw.Draw(img, "RGBA")
+            iw, ih = img.size
+
+            colors_overlay = [
+                (124, 58, 237, 160),   # purple
+                (16, 185, 129, 160),   # green
+                (245, 158, 11, 160),   # amber
+            ]
+
+            zone_h = ih // max(len(furniture_names), 1)
+            for idx, name in enumerate(furniture_names):
+                x0 = int(iw * 0.05)
+                y0 = int(ih * 0.1) + idx * zone_h
+                x1 = int(iw * 0.45)
+                y1 = y0 + int(zone_h * 0.6)
+                color = colors_overlay[idx % len(colors_overlay)]
+                draw.rectangle([x0, y0, x1, y1], fill=color, outline=(255, 255, 255, 200), width=2)
+
+                # Label
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", max(16, iw // 40))
+                except Exception:
+                    font = ImageFont.load_default()
+
+                draw.text((x0 + 10, y0 + 10), name, fill=(255, 255, 255, 255), font=font)
+
+            previews_dir = os.path.join(upload_dir, "previews")
+            os.makedirs(previews_dir, exist_ok=True)
+            out_name = f"preview_{uuid.uuid4().hex[:8]}.jpg"
+            out_path = os.path.join(previews_dir, out_name)
+            img.save(out_path, "JPEG", quality=85)
+
+            return jsonify({"preview_url": f"/uploads/previews/{out_name}"})
+
+        except Exception as e:
+            logger.exception("Composite preview failed: %s", e)
+            return jsonify({"error": "Failed to generate preview"}), 500
+
+    @app.route("/uploads/previews/<path:filename>")
+    def uploaded_preview(filename):
+        return send_from_directory(os.path.join(upload_dir, "previews"), filename)
+
     @app.route("/analyze-room", methods=["POST"])
     def analyze_room():
         file = request.files.get("image") or request.files.get("room_image")
         if not file or not file.filename:
             return jsonify({"error": "No image file provided"}), 400
         if not allowed_file(file.filename):
-            return jsonify({"error": "Unsupported file type. Use PNG, JPG, JPEG, WEBP or GIF"}), 400
+            return jsonify({"error": "Unsupported file type. Use PNG, JPG or JPEG"}), 400
+
+        raw_bytes = file.read()
+
+        # Issue 8 — size validation
+        if len(raw_bytes) > 5 * 1024 * 1024:
+            return jsonify({"error": "File too large. Maximum size is 5 MB."}), 400
+
+        # Issue 8 — MIME validation
+        allowed_mime = {"image/jpeg", "image/png", "image/webp"}
+        mime = file.mimetype or ""
+        if mime and mime not in allowed_mime:
+            return jsonify({"error": "Unsupported file type. Use JPEG, PNG or WEBP."}), 400
+
         try:
-            raw_bytes = file.read()
             image = Image.open(BytesIO(raw_bytes)).convert("RGB")
             w, h = image.size
+
+            # Issue 8 — minimum dimensions
+            if w < 100 or h < 100:
+                return jsonify({"error": "Image too small. Please upload a larger photo."}), 400
+
+            # ── Save image so Claude can read it ──────────────────────────
+            import uuid as _uuid
+            ext = secure_filename(file.filename).rsplit(".", 1)[-1].lower() if "." in file.filename else "jpg"
+            tmp_name = f"analyze_{_uuid.uuid4().hex}.{ext}"
+            tmp_path = os.path.join(upload_dir, tmp_name)
+            with open(tmp_path, "wb") as fh:
+                fh.write(raw_bytes)
+
+            # ── Issue 1 — Claude vision analysis ─────────────────────────
+            from ai_design import analyze_room_with_vision, NOT_A_ROOM as _NOT_A_ROOM
+            vision_result = analyze_room_with_vision(tmp_path)
+
+            if vision_result == _NOT_A_ROOM:
+                return jsonify({"error": "Please upload a photo of a room interior."}), 400
+
+            if isinstance(vision_result, dict):
+                # Return Claude's rich result
+                return jsonify({
+                    "source": "claude",
+                    "room_type": vision_result.get("room_type", "Unknown"),
+                    "style": vision_result.get("style", "Modern"),
+                    "dimensions": {"width": round(w * 0.05, 2), "length": round(h * 0.05, 2), "height": 9.0, "area": round(w * 0.05 * h * 0.05, 2)},
+                    "colors": vision_result.get("detected_colors", []),
+                    "furniture_suggestions": vision_result.get("furniture_suggestions", []),
+                    "layout_tip": vision_result.get("layout_tip", ""),
+                    "lighting": {"quality": "Good", "brightness": int(ImageStat.Stat(image.convert("L")).mean[0])},
+                    "style_recommendations": [{"style": vision_result.get("style", "Modern"), "score": 95.0}],
+                    "image_path": f"uploads/{tmp_name}",
+                })
+
+            # ── PIL fallback (no Claude key or error) ─────────────────────
             width_ft = round(w * 0.05, 2)
             length_ft = round(h * 0.05, 2)
             area = round(width_ft * length_ft, 2)
@@ -661,7 +780,7 @@ def create_app(test_config=None):
             colors = [f"#{palette[i*3]:02x}{palette[i*3+1]:02x}{palette[i*3+2]:02x}" for i in range(5) if len(palette) >= (i+1)*3]
             while len(colors) < 5:
                 colors.append("#2a2f45")
-            detected_edges = random.randint(3000, 5000)
+
             style_reference = {
                 "Modern Minimalist": ["#FFFFFF", "#000000", "#808080", "#F5F5F5"],
                 "Scandinavian": ["#F5F0E8", "#D4A373", "#CCD5AE", "#E9EDC9"],
@@ -671,30 +790,31 @@ def create_app(test_config=None):
             }
 
             def _rgb(hex_color):
-                value = hex_color.lstrip("#")
-                return tuple(int(value[i:i+2], 16) for i in (0, 2, 4))
+                v = hex_color.lstrip("#")
+                return tuple(int(v[i:i+2], 16) for i in (0, 2, 4))
 
             def _style_score(style_colors):
                 room_rgbs = [_rgb(c) for c in colors[:4]]
                 style_rgbs = [_rgb(c) for c in style_colors]
                 score = 0
                 for room_rgb in room_rgbs:
-                    min_dist = min(abs(room_rgb[0] - s[0]) + abs(room_rgb[1] - s[1]) + abs(room_rgb[2] - s[2]) for s in style_rgbs)
+                    min_dist = min(abs(room_rgb[0]-s[0])+abs(room_rgb[1]-s[1])+abs(room_rgb[2]-s[2]) for s in style_rgbs)
                     score += max(0, 255 - (min_dist / 3))
                 return round((score / (len(room_rgbs) * 255)) * 100, 1)
 
-            style_scores = []
-            for style_name, style_colors in style_reference.items():
-                style_scores.append({"style": style_name, "score": _style_score(style_colors)})
-            style_scores.sort(key=lambda item: item["score"], reverse=True)
+            style_scores = [{"style": s, "score": _style_score(c)} for s, c in style_reference.items()]
+            style_scores.sort(key=lambda x: x["score"], reverse=True)
 
             return jsonify({
+                "source": "pil",
                 "dimensions": {"width": width_ft, "length": length_ft, "height": 9.0, "area": area},
-                "lighting": {"quality": lighting_quality, "brightness": brightness, "description": "Good natural lighting. Consider warm accent lights for evening ambiance."},
+                "lighting": {"quality": lighting_quality, "brightness": brightness, "description": "Consider warm accent lights for evening ambiance."},
                 "colors": colors,
-                "features": {"complexity": "Medium", "edges": detected_edges, "orientation": "Landscape" if w >= h else "Portrait"},
+                "features": {"complexity": "Medium", "edges": random.randint(3000, 5000), "orientation": "Landscape" if w >= h else "Portrait"},
                 "style_recommendations": style_scores[:3],
+                "image_path": f"uploads/{tmp_name}",
             })
+
         except Exception as e:
             logger.exception("Room analysis failed: %s", e)
             return jsonify({"error": "Failed to analyze image"}), 500

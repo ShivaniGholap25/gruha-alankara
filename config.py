@@ -1,3 +1,4 @@
+from datetime import timedelta
 import os
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -13,13 +14,12 @@ UPLOAD_FOLDER = "uploads"
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 
-# In production (cross-domain Vercel → Render), cookies need SameSite=None + Secure
 IS_PROD = os.environ.get("FLASK_ENV") == "production"
 SESSION_COOKIE_SECURE = IS_PROD
 SESSION_COOKIE_SAMESITE = "None" if IS_PROD else "Lax"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_NAME = "gruha_session"
-PERMANENT_SESSION_LIFETIME = 86400
+PERMANENT_SESSION_LIFETIME = timedelta(hours=2)
 
 os.makedirs(os.path.join(BASE_DIR, "uploads"), exist_ok=True)
 os.makedirs(os.path.join(BASE_DIR, "static", "audio"), exist_ok=True)
