@@ -1,4 +1,7 @@
 {% extends 'base.html' %}
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+{% endblock %}
 {% block content %}
 <div style="max-width:1280px;margin:0 auto;padding:2rem;">
   <div style="margin-bottom:1.2rem;">
@@ -73,10 +76,24 @@
       <div id="furniture" class="tab-pane" style="display:none;"></div>
       <div id="budget_tab" class="tab-pane" style="display:none;"></div>
       <div id="view3d" class="tab-pane" style="display:none;">
-        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;">
-          <a href="/live_ar" class="card" style="text-decoration:none;color:#e2e8f0;"><i class="fas fa-camera" style="color:#818cf8;"></i><h4 style="margin:0.5rem 0;">AR Camera</h4><p style="color:#94a3b8;">Try placement overlays with live camera.</p></a>
-          <div class="card"><i class="fas fa-cube" style="color:#818cf8;"></i><h4 style="margin:0.5rem 0;">3D Viewer</h4><p style="color:#94a3b8;">Interactive model view with room depth.</p></div>
-          <div class="card"><i class="fas fa-globe" style="color:#818cf8;"></i><h4 style="margin:0.5rem 0;">360 Preview</h4><p style="color:#94a3b8;">Walkthrough perspective preview.</p></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">
+          <div class="card" style="text-align:center;cursor:pointer;" onclick="start360View()">
+            <span style="background:linear-gradient(135deg,#ec4899,#f43f5e);color:white;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;display:inline-block;margin-bottom:1rem;">Recommended</span>
+            <i class="fas fa-video" style="font-size:2.5rem;color:#818cf8;display:block;margin-bottom:1rem;"></i>
+            <h3 style="font-weight:700;margin-bottom:0.5rem;">Live AR Camera</h3>
+            <p style="font-size:0.85rem;color:#94a3b8;">Place furniture in your room with real-time camera</p>
+          </div>
+          <div class="card" style="text-align:center;cursor:pointer;" onclick="start360View()">
+            <span style="background:#f59e0b;color:black;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;display:inline-block;margin-bottom:1rem;">Popular</span>
+            <i class="fas fa-cube" style="font-size:2.5rem;color:#818cf8;display:block;margin-bottom:1rem;"></i>
+            <h3 style="font-weight:700;margin-bottom:0.5rem;">3D Model Viewer</h3>
+            <p style="font-size:0.85rem;color:#94a3b8;">View furniture in 3D from all angles</p>
+          </div>
+          <div class="card" style="text-align:center;cursor:pointer;" onclick="start360View()">
+            <i class="fas fa-sync" style="font-size:2.5rem;color:#818cf8;display:block;margin-bottom:1rem;margin-top:2rem;"></i>
+            <h3 style="font-weight:700;margin-bottom:0.5rem;">360° Preview</h3>
+            <p style="font-size:0.85rem;color:#94a3b8;">Interactive room panorama view</p>
+          </div>
         </div>
       </div>
       <div id="mood" class="tab-pane" style="display:none;"></div>
@@ -213,5 +230,204 @@ function applyInitialQueryParams() {
 applyInitialQueryParams();
 updateAreaLabel();
 renderDefaultOverview();
+</script>
+
+<!-- 360° Panorama Modal -->
+<div id="modal360" style="display:none;position:fixed;inset:0;z-index:9999;background:#000;">
+  <div style="position:absolute;top:0;left:0;right:0;height:60px;background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:10001;">
+    <span style="color:white;font-size:18px;font-weight:600;">🏡 360° Room View</span>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <span id="compassDir" style="color:rgba(255,255,255,0.8);font-size:13px;background:rgba(255,255,255,0.15);padding:4px 12px;border-radius:20px;">🧭 N 0°</span>
+      <button id="close360" style="color:white;background:rgba(255,255,255,0.2);border:none;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;">✕</button>
+    </div>
+  </div>
+  <div id="panoramaContainer" style="width:100%;height:100%;"></div>
+  <div style="position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:10001;display:flex;gap:8px;">
+    <button id="modeLive" onclick="setPanoMode('live')" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:20px;padding:6px 16px;font-size:13px;cursor:pointer;">📷 Live Camera</button>
+    <button id="modeGyro" onclick="setPanoMode('gyro')" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:20px;padding:6px 16px;font-size:13px;cursor:pointer;">📱 Gyroscope</button>
+    <button id="modeDrag" onclick="setPanoMode('drag')" style="background:#7c3aed;color:white;border:none;border-radius:20px;padding:6px 16px;font-size:13px;cursor:pointer;">🖱️ Drag</button>
+  </div>
+  <div id="panoInstructions" style="position:absolute;bottom:100px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.8);font-size:13px;background:rgba(0,0,0,0.5);padding:8px 20px;border-radius:20px;text-align:center;white-space:nowrap;">👆 Drag to look around your room</div>
+  <button id="capture360btn" style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border:none;border-radius:100px;padding:14px 40px;font-size:15px;cursor:pointer;box-shadow:0 4px 20px rgba(124,58,237,0.5);">📸 Capture This View</button>
+  <video id="video360" autoplay playsinline style="display:none;"></video>
+  <canvas id="canvas360" style="display:none;"></canvas>
+</div>
+
+<script>
+let panoScene,panoCamera,panoRenderer,panoSphere;
+let panoStream=null,panoMode='drag',isDragging=false;
+let previousMousePosition={x:0,y:0};
+let cameraRotation={x:0,y:0};
+let panoAnimFrame=null;
+
+function init360Panorama(){
+  const container=document.getElementById('panoramaContainer');
+  const w=window.innerWidth,h=window.innerHeight;
+  panoScene=new THREE.Scene();
+  panoCamera=new THREE.PerspectiveCamera(75,w/h,0.1,1000);
+  panoCamera.position.set(0,0,0);
+  panoRenderer=new THREE.WebGLRenderer({antialias:true});
+  panoRenderer.setSize(w,h);
+  panoRenderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(panoRenderer.domElement);
+
+  const geometry=new THREE.SphereGeometry(500,60,40);
+  geometry.scale(-1,1,1);
+
+  const canvas=document.createElement('canvas');
+  canvas.width=2048;canvas.height=1024;
+  const ctx=canvas.getContext('2d');
+  const gradient=ctx.createLinearGradient(0,0,0,1024);
+  gradient.addColorStop(0,'#1a1a2e');
+  gradient.addColorStop(0.5,'#16213e');
+  gradient.addColorStop(1,'#0d0d1a');
+  ctx.fillStyle=gradient;ctx.fillRect(0,0,2048,1024);
+  ctx.strokeStyle='rgba(124,58,237,0.15)';ctx.lineWidth=1;
+  for(let i=0;i<2048;i+=100){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,1024);ctx.stroke();}
+  for(let i=0;i<1024;i+=100){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(2048,i);ctx.stroke();}
+  ctx.fillStyle='rgba(124,58,237,0.5)';ctx.font='bold 48px Segoe UI';ctx.textAlign='center';
+  ctx.fillText('Point camera at your room',1024,480);
+  ctx.font='32px Segoe UI';ctx.fillStyle='rgba(168,85,247,0.4)';
+  ctx.fillText('or drag to explore 360°',1024,540);
+
+  const texture=new THREE.CanvasTexture(canvas);
+  const material=new THREE.MeshBasicMaterial({map:texture});
+  panoSphere=new THREE.Mesh(geometry,material);
+  panoScene.add(panoSphere);
+  animatePanorama();
+  setupDragControls();
+}
+
+function animatePanorama(){
+  panoAnimFrame=requestAnimationFrame(animatePanorama);
+  if(!isDragging&&panoMode==='drag') cameraRotation.y+=0.001;
+  panoCamera.rotation.x=cameraRotation.x;
+  panoCamera.rotation.y=cameraRotation.y;
+  if(panoMode==='live'&&panoStream) updateCameraTexture();
+  panoRenderer.render(panoScene,panoCamera);
+}
+
+function updateCameraTexture(){
+  const video=document.getElementById('video360');
+  const canvas=document.getElementById('canvas360');
+  if(!video||!canvas||video.readyState<2) return;
+  canvas.width=video.videoWidth||640;canvas.height=video.videoHeight||480;
+  const ctx=canvas.getContext('2d');ctx.drawImage(video,0,0);
+  const texture=new THREE.CanvasTexture(canvas);
+  if(panoSphere&&panoSphere.material){panoSphere.material.map=texture;panoSphere.material.needsUpdate=true;}
+}
+
+function setupDragControls(){
+  const c=panoRenderer.domElement;
+  c.addEventListener('mousedown',e=>{isDragging=true;previousMousePosition={x:e.clientX,y:e.clientY};});
+  c.addEventListener('mousemove',e=>{
+    if(!isDragging) return;
+    cameraRotation.y+=(e.clientX-previousMousePosition.x)*0.005;
+    cameraRotation.x+=(e.clientY-previousMousePosition.y)*0.005;
+    cameraRotation.x=Math.max(-Math.PI/2,Math.min(Math.PI/2,cameraRotation.x));
+    previousMousePosition={x:e.clientX,y:e.clientY};
+  });
+  c.addEventListener('mouseup',()=>isDragging=false);
+  c.addEventListener('mouseleave',()=>isDragging=false);
+  c.addEventListener('touchstart',e=>{isDragging=true;previousMousePosition={x:e.touches[0].clientX,y:e.touches[0].clientY};e.preventDefault();},{passive:false});
+  c.addEventListener('touchmove',e=>{
+    if(!isDragging) return;
+    cameraRotation.y+=(e.touches[0].clientX-previousMousePosition.x)*0.005;
+    cameraRotation.x+=(e.touches[0].clientY-previousMousePosition.y)*0.005;
+    cameraRotation.x=Math.max(-Math.PI/2,Math.min(Math.PI/2,cameraRotation.x));
+    previousMousePosition={x:e.touches[0].clientX,y:e.touches[0].clientY};
+    e.preventDefault();
+  },{passive:false});
+  c.addEventListener('touchend',()=>isDragging=false);
+  let lastPinch=0;
+  c.addEventListener('touchstart',e=>{if(e.touches.length===2) lastPinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);});
+  c.addEventListener('touchmove',e=>{
+    if(e.touches.length===2){
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      panoCamera.fov=Math.max(30,Math.min(90,panoCamera.fov+(lastPinch-d)*0.1));
+      panoCamera.updateProjectionMatrix();lastPinch=d;
+    }
+  });
+  window.addEventListener('resize',()=>{
+    if(!panoRenderer) return;
+    panoCamera.aspect=window.innerWidth/window.innerHeight;
+    panoCamera.updateProjectionMatrix();
+    panoRenderer.setSize(window.innerWidth,window.innerHeight);
+  });
+}
+
+async function setPanoMode(mode){
+  panoMode=mode;
+  ['modeLive','modeGyro','modeDrag'].forEach(id=>{const b=document.getElementById(id);if(b) b.style.background='rgba(255,255,255,0.2)';});
+  const activeId='mode'+mode.charAt(0).toUpperCase()+mode.slice(1);
+  if(document.getElementById(activeId)) document.getElementById(activeId).style.background='#7c3aed';
+  const instr=document.getElementById('panoInstructions');
+  if(mode==='live'){
+    instr.textContent='📷 Live camera mapped to 360° sphere';
+    try{
+      panoStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+      const video=document.getElementById('video360');video.srcObject=panoStream;await video.play();
+    }catch(e){alert('Camera access needed for live mode');setPanoMode('drag');}
+  } else if(mode==='gyro'){
+    instr.textContent='📱 Move your phone to look around';
+    if(panoStream){panoStream.getTracks().forEach(t=>t.stop());panoStream=null;}
+    if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+      try{await DeviceOrientationEvent.requestPermission();}catch(e){}
+    }
+    window.addEventListener('deviceorientation',handleGyro360);
+  } else {
+    instr.textContent='👆 Drag to look around • Pinch to zoom';
+    if(panoStream){panoStream.getTracks().forEach(t=>t.stop());panoStream=null;}
+    window.removeEventListener('deviceorientation',handleGyro360);
+  }
+}
+
+function handleGyro360(e){
+  if(panoMode!=='gyro') return;
+  cameraRotation.y=-(e.alpha||0)*Math.PI/180;
+  cameraRotation.x=((e.beta||0)-90)*Math.PI/180;
+  const deg=Math.round(e.alpha||0);
+  const dirs=['N','NE','E','SE','S','SW','W','NW'];
+  const dir=dirs[Math.round(deg/45)%8];
+  const compass=document.getElementById('compassDir');
+  if(compass) compass.textContent='🧭 '+dir+' '+deg+'°';
+}
+
+async function start360View(){
+  document.getElementById('modal360').style.display='block';
+  document.body.style.overflow='hidden';
+  if(!panoRenderer) init360Panorama();
+  setPanoMode('drag');
+}
+
+function close360View(){
+  document.getElementById('modal360').style.display='none';
+  document.body.style.overflow='';
+  if(panoStream){panoStream.getTracks().forEach(t=>t.stop());panoStream=null;}
+  window.removeEventListener('deviceorientation',handleGyro360);
+  if(panoAnimFrame){cancelAnimationFrame(panoAnimFrame);panoAnimFrame=null;}
+  if(panoRenderer){
+    panoRenderer.dispose();
+    const c=document.getElementById('panoramaContainer');
+    if(c) c.innerHTML='';
+    panoRenderer=null;panoScene=null;panoCamera=null;panoSphere=null;
+  }
+}
+
+document.getElementById('capture360btn').addEventListener('click',function(){
+  const flash=document.createElement('div');
+  flash.style.cssText='position:fixed;inset:0;background:white;opacity:0.9;z-index:99999;transition:opacity 0.4s';
+  document.body.appendChild(flash);
+  setTimeout(()=>flash.style.opacity='0',50);
+  setTimeout(()=>flash.remove(),450);
+  if(panoRenderer){
+    panoRenderer.render(panoScene,panoCamera);
+    panoRenderer.domElement.toBlob(blob=>{
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+      a.download='360-room-view.jpg';a.click();
+    },'image/jpeg',0.92);
+  }
+});
+document.getElementById('close360').addEventListener('click',close360View);
 </script>
 {% endblock %}
