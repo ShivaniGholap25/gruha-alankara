@@ -3,6 +3,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 #ar-root{position:fixed;inset:0;background:#0d0d1a;z-index:200;display:flex;flex-direction:column;overflow:hidden;}
+#ar-wrapper{position:absolute;inset:0;}
+#camera-feed{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;}
 #ar-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;}
 #ar-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;}
 #ar-topbar{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(13,13,26,0.85);backdrop-filter:blur(8px);border-bottom:1px solid #1e293b;}
@@ -60,6 +62,9 @@
     <button id="mirror-btn" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;" title="Mirror"><i class="fas fa-sliders"></i></button>
   </div>
   <div id="ar-viewport">
+    <div id="ar-wrapper">
+      <video id="camera-feed" autoplay playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"></video>
+    </div>
     <video id="ar-video" autoplay playsinline muted></video>
     <canvas id="ar-canvas"></canvas>
     <div id="cam-indicator"><div id="cam-dot"></div><span id="cam-label">Initialising...</span></div>

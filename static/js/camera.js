@@ -9,6 +9,24 @@ function stopCamera() {
 	activeStream = null;
 }
 
+// ── AR page: auto-init camera-feed if present ──────────────────────────────
+(function initARCamera() {
+	const videoEl = document.getElementById("camera-feed");
+	if (!videoEl) return;
+	const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+	const constraints = {
+		video: isMobile
+			? { facingMode: { ideal: "environment" } }
+			: true
+	};
+	navigator.mediaDevices.getUserMedia(constraints)
+		.then(stream => {
+			activeStream = stream;
+			videoEl.srcObject = stream;
+		})
+		.catch(() => alert("Camera access denied"));
+})();
+
 document.addEventListener("DOMContentLoaded", () => {
 	const cameraFeed = document.getElementById("camera-feed");
 	const startCameraBtn = document.getElementById("start-camera-btn");
@@ -18,7 +36,8 @@ document.addEventListener("DOMContentLoaded", () => {
 	const recommendations = document.getElementById("ai-recommendations");
 	const selectedStyleInput = document.getElementById("selected-style");
 
-	if (!cameraFeed) {
+	// analyze page uses start-camera-btn; skip if not present
+	if (!startCameraBtn) {
 		return;
 	}
 
