@@ -220,7 +220,7 @@ def create_app(test_config=None):
     @app.route("/login", methods=["GET", "POST"])
     def login():
         if request.method == "GET":
-            return redirect("http://localhost:5173/login")
+            return render_template("login.html")
         data = request.get_json(silent=True) or request.form.to_dict()
         email = str(data.get("email", "")).strip().lower()
         password = str(data.get("password", ""))
