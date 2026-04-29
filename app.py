@@ -48,6 +48,7 @@ def create_app(test_config=None):
     allowed_origins = [o for o in [
         "http://localhost:5173",
         "http://localhost:5174",
+        "https://web-production-3fbd6.up.railway.app",
         frontend_url,
     ] if o]
     CORS(app,
