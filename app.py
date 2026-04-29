@@ -72,12 +72,7 @@ def create_app(test_config=None):
 
     @app.route("/auth/google")
     def google_login():
-        frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
-        is_prod = os.environ.get("FLASK_ENV") == "production"
-        if is_prod:
-            redirect_uri = "https://web-production-3fbd6.up.railway.app/auth/google/callback"
-        else:
-            redirect_uri = url_for("google_callback", _external=True)
+        redirect_uri = request.host_url.rstrip('/') + '/auth/google/callback'
         return google.authorize_redirect(redirect_uri)
 
     @app.route("/auth/google/callback")
