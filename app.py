@@ -7,6 +7,7 @@ import time
 import logging
 import random
 import jwt
+from authlib.integrations.flask_client import OAuth
 from datetime import datetime
 from collections import Counter
 from io import BytesIO
@@ -58,6 +59,67 @@ def create_app(test_config=None):
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
     init_db(app)
+
+    # ── Google OAuth ──────────────────────────────────────────────────────
+    oauth = OAuth(app)
+    google = oauth.register(
+        name="google",
+        client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+        client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid email profile"},
+    )
+
+    @app.route("/auth/google")
+    def google_login():
+        frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+        is_prod = os.environ.get("FLASK_ENV") == "production"
+        if is_prod:
+            redirect_uri = "https://web-production-3fbd6.up.railway.app/auth/google/callback"
+        else:
+            redirect_uri = url_for("google_callback", _external=True)
+        return google.authorize_redirect(redirect_uri)
+
+    @app.route("/auth/google/callback")
+    def google_callback():
+        try:
+            token = google.authorize_access_token()
+            user_info = token.get("userinfo")
+            if not user_info:
+                return redirect("/?error=google_failed")
+
+            email    = user_info["email"]
+            name     = user_info.get("name", email.split("@")[0])
+            username = name.replace(" ", "").lower()[:30]
+
+            # Find or create user
+            user = User.query.filter_by(email=email).first()
+            if not user:
+                # Make username unique
+                base = username
+                counter = 1
+                while User.query.filter_by(username=username).first():
+                    username = f"{base}{counter}"
+                    counter += 1
+                user = User(username=username, email=email)
+                user.set_password(os.urandom(24).hex())  # random password
+                db.session.add(user)
+                db.session.commit()
+
+            session["user_id"]  = user.id
+            session["username"] = user.username
+            session.permanent   = True
+
+            # Redirect to frontend
+            frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+            is_prod = os.environ.get("FLASK_ENV") == "production"
+            if is_prod:
+                return redirect("/")
+            return redirect(f"{frontend_url}/")
+
+        except Exception as e:
+            logger.exception("Google OAuth callback failed: %s", e)
+            return redirect("/?error=google_failed")
 
     upload_dir = os.path.join(app.root_path, app.config.get("UPLOAD_FOLDER", "uploads"))
     os.makedirs(upload_dir, exist_ok=True)
