@@ -28,21 +28,17 @@ export default function BuddyChat() {
     setTyping(true);
     const res = await api.post('/buddy', { message: msg, language });
     setTyping(false);
-    if (res.ok) {
+    if (res.ok && (res.data.text || res.data.reply)) {
       setMessages((prev) => [
         ...prev,
-        { sender: 'bot', text: res.data.text || res.data.reply || 'I am here to help!' },
+        { sender: 'bot', text: res.data.text || res.data.reply },
       ]);
-      // Issue 5 — play audio response
       if (res.data.audio_url) {
         const audioSrc = (import.meta.env.VITE_API_URL || '') + res.data.audio_url;
         new Audio(audioSrc).play().catch(() => {});
       }
     } else {
-      const errorMsg = res.status === 401
-        ? 'Please login to chat with Buddy.'
-        : 'Sorry, could not connect. Try again.';
-      setMessages((prev) => [...prev, { sender: 'bot', text: errorMsg }]);
+      setMessages((prev) => [...prev, { sender: 'bot', text: res.data?.text || 'Sorry, something went wrong. Please try again.' }]);
     }
   };
 

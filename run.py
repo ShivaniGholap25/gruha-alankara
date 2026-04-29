@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 import sys, os
 os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 from app import app

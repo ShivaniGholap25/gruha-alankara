@@ -14,7 +14,6 @@ export default function Navbar() {
     { to: '/analyze', label: 'Analyze Room' },
     { to: '/design', label: 'Design Studio' },
     { to: '/catalog', label: 'My Catalog' },
-    { to: '/style-quiz', label: 'Style Quiz' },
   ];
 
   const isActive = (path) => location.pathname === path;

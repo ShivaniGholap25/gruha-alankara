@@ -77,19 +77,19 @@
       <div id="budget_tab" class="tab-pane" style="display:none;"></div>
       <div id="view3d" class="tab-pane" style="display:none;">
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">
-          <div class="card" style="text-align:center;cursor:pointer;" onclick="start360View()">
+          <div class="card" style="text-align:center;cursor:pointer;" onclick="start360View('live')">
             <span style="background:linear-gradient(135deg,#ec4899,#f43f5e);color:white;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;display:inline-block;margin-bottom:1rem;">Recommended</span>
             <i class="fas fa-video" style="font-size:2.5rem;color:#818cf8;display:block;margin-bottom:1rem;"></i>
             <h3 style="font-weight:700;margin-bottom:0.5rem;">Live AR Camera</h3>
             <p style="font-size:0.85rem;color:#94a3b8;">Place furniture in your room with real-time camera</p>
           </div>
-          <div class="card" style="text-align:center;cursor:pointer;" onclick="start360View()">
+          <div class="card" style="text-align:center;cursor:pointer;" onclick="start360View('drag')">
             <span style="background:#f59e0b;color:black;padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:700;display:inline-block;margin-bottom:1rem;">Popular</span>
             <i class="fas fa-cube" style="font-size:2.5rem;color:#818cf8;display:block;margin-bottom:1rem;"></i>
             <h3 style="font-weight:700;margin-bottom:0.5rem;">3D Model Viewer</h3>
             <p style="font-size:0.85rem;color:#94a3b8;">View furniture in 3D from all angles</p>
           </div>
-          <div class="card" style="text-align:center;cursor:pointer;" onclick="start360View()">
+          <div class="card" style="text-align:center;cursor:pointer;" onclick="start360View('gyro')">
             <i class="fas fa-sync" style="font-size:2.5rem;color:#818cf8;display:block;margin-bottom:1rem;margin-top:2rem;"></i>
             <h3 style="font-weight:700;margin-bottom:0.5rem;">360° Preview</h3>
             <p style="font-size:0.85rem;color:#94a3b8;">Interactive room panorama view</p>
@@ -254,180 +254,223 @@ renderDefaultOverview();
 </div>
 
 <script>
-let panoScene,panoCamera,panoRenderer,panoSphere;
-let panoStream=null,panoMode='drag',isDragging=false;
-let previousMousePosition={x:0,y:0};
-let cameraRotation={x:0,y:0};
-let panoAnimFrame=null;
+let panoScene, panoCamera, panoRenderer, panoSphere;
+let panoStream   = null;
+let panoMode     = 'drag';
+let isDragging   = false;
+let previousMousePosition = { x: 0, y: 0 };
+let cameraRotation = { x: 0, y: 0 };
+let panoAnimFrame  = null;
 
-function init360Panorama(){
-  const container=document.getElementById('panoramaContainer');
-  const w=window.innerWidth,h=window.innerHeight;
-  panoScene=new THREE.Scene();
-  panoCamera=new THREE.PerspectiveCamera(75,w/h,0.1,1000);
-  panoCamera.position.set(0,0,0);
-  panoRenderer=new THREE.WebGLRenderer({antialias:true});
-  panoRenderer.setSize(w,h);
+function init360Panorama() {
+  const container = document.getElementById('panoramaContainer');
+  const w = window.innerWidth, h = window.innerHeight;
+  panoScene  = new THREE.Scene();
+  panoCamera = new THREE.PerspectiveCamera(75, w / h, 0.1, 1000);
+  panoCamera.position.set(0, 0, 0);
+  panoRenderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  panoRenderer.setSize(w, h);
   panoRenderer.setPixelRatio(window.devicePixelRatio);
   container.appendChild(panoRenderer.domElement);
-
-  const geometry=new THREE.SphereGeometry(500,60,40);
-  geometry.scale(-1,1,1);
-
-  const canvas=document.createElement('canvas');
-  canvas.width=2048;canvas.height=1024;
-  const ctx=canvas.getContext('2d');
-  const gradient=ctx.createLinearGradient(0,0,0,1024);
-  gradient.addColorStop(0,'#1a1a2e');
-  gradient.addColorStop(0.5,'#16213e');
-  gradient.addColorStop(1,'#0d0d1a');
-  ctx.fillStyle=gradient;ctx.fillRect(0,0,2048,1024);
-  ctx.strokeStyle='rgba(124,58,237,0.15)';ctx.lineWidth=1;
-  for(let i=0;i<2048;i+=100){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,1024);ctx.stroke();}
-  for(let i=0;i<1024;i+=100){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(2048,i);ctx.stroke();}
-  ctx.fillStyle='rgba(124,58,237,0.5)';ctx.font='bold 48px Segoe UI';ctx.textAlign='center';
-  ctx.fillText('Point camera at your room',1024,480);
-  ctx.font='32px Segoe UI';ctx.fillStyle='rgba(168,85,247,0.4)';
-  ctx.fillText('or drag to explore 360°',1024,540);
-
-  const texture=new THREE.CanvasTexture(canvas);
-  const material=new THREE.MeshBasicMaterial({map:texture});
-  panoSphere=new THREE.Mesh(geometry,material);
+  const geometry = new THREE.SphereGeometry(500, 60, 40);
+  geometry.scale(-1, 1, 1);
+  panoSphere = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ map: makeGridTexture() }));
   panoScene.add(panoSphere);
-  animatePanorama();
   setupDragControls();
+  animatePanorama();
 }
 
-function animatePanorama(){
-  panoAnimFrame=requestAnimationFrame(animatePanorama);
-  if(!isDragging&&panoMode==='drag') cameraRotation.y+=0.001;
-  panoCamera.rotation.x=cameraRotation.x;
-  panoCamera.rotation.y=cameraRotation.y;
-  if(panoMode==='live'&&panoStream) updateCameraTexture();
-  panoRenderer.render(panoScene,panoCamera);
+function makeGridTexture() {
+  const c = document.createElement('canvas');
+  c.width = 2048; c.height = 1024;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 1024);
+  g.addColorStop(0, '#1a1a2e'); g.addColorStop(0.5, '#16213e'); g.addColorStop(1, '#0d0d1a');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 2048, 1024);
+  ctx.strokeStyle = 'rgba(124,58,237,0.15)'; ctx.lineWidth = 1;
+  for (let x = 0; x < 2048; x += 100) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,1024); ctx.stroke(); }
+  for (let y = 0; y < 1024; y += 100) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(2048,y); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(124,58,237,0.6)'; ctx.font = 'bold 48px Segoe UI'; ctx.textAlign = 'center';
+  ctx.fillText('360° Room View', 1024, 460);
+  ctx.font = '32px Segoe UI'; ctx.fillStyle = 'rgba(168,85,247,0.4)';
+  ctx.fillText('Drag to explore  •  Switch to Live Camera to capture', 1024, 530);
+  return new THREE.CanvasTexture(c);
 }
 
-function updateCameraTexture(){
-  const video=document.getElementById('video360');
-  const canvas=document.getElementById('canvas360');
-  if(!video||!canvas||video.readyState<2) return;
-  canvas.width=video.videoWidth||640;canvas.height=video.videoHeight||480;
-  const ctx=canvas.getContext('2d');ctx.drawImage(video,0,0);
-  const texture=new THREE.CanvasTexture(canvas);
-  if(panoSphere&&panoSphere.material){panoSphere.material.map=texture;panoSphere.material.needsUpdate=true;}
+function animatePanorama() {
+  panoAnimFrame = requestAnimationFrame(animatePanorama);
+  if (!isDragging && panoMode === 'drag') cameraRotation.y += 0.001;
+  panoCamera.rotation.x = cameraRotation.x;
+  panoCamera.rotation.y = cameraRotation.y;
+  if (panoMode === 'live' && panoStream) updateCameraTexture();
+  panoRenderer.render(panoScene, panoCamera);
 }
 
-function setupDragControls(){
-  const c=panoRenderer.domElement;
-  c.addEventListener('mousedown',e=>{isDragging=true;previousMousePosition={x:e.clientX,y:e.clientY};});
-  c.addEventListener('mousemove',e=>{
-    if(!isDragging) return;
-    cameraRotation.y+=(e.clientX-previousMousePosition.x)*0.005;
-    cameraRotation.x+=(e.clientY-previousMousePosition.y)*0.005;
-    cameraRotation.x=Math.max(-Math.PI/2,Math.min(Math.PI/2,cameraRotation.x));
-    previousMousePosition={x:e.clientX,y:e.clientY};
+function updateCameraTexture() {
+  const video  = document.getElementById('video360');
+  const canvas = document.getElementById('canvas360');
+  if (!video || !canvas || video.readyState < 2) return;
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  if (panoSphere && panoSphere.material) {
+    panoSphere.material.map = tex;
+    panoSphere.material.needsUpdate = true;
+  }
+}
+
+function setupDragControls() {
+  const c = panoRenderer.domElement;
+  c.addEventListener('mousedown', e => { isDragging = true; previousMousePosition = { x: e.clientX, y: e.clientY }; });
+  c.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    cameraRotation.y += (e.clientX - previousMousePosition.x) * 0.005;
+    cameraRotation.x += (e.clientY - previousMousePosition.y) * 0.005;
+    cameraRotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, cameraRotation.x));
+    previousMousePosition = { x: e.clientX, y: e.clientY };
   });
-  c.addEventListener('mouseup',()=>isDragging=false);
-  c.addEventListener('mouseleave',()=>isDragging=false);
-  c.addEventListener('touchstart',e=>{isDragging=true;previousMousePosition={x:e.touches[0].clientX,y:e.touches[0].clientY};e.preventDefault();},{passive:false});
-  c.addEventListener('touchmove',e=>{
-    if(!isDragging) return;
-    cameraRotation.y+=(e.touches[0].clientX-previousMousePosition.x)*0.005;
-    cameraRotation.x+=(e.touches[0].clientY-previousMousePosition.y)*0.005;
-    cameraRotation.x=Math.max(-Math.PI/2,Math.min(Math.PI/2,cameraRotation.x));
-    previousMousePosition={x:e.touches[0].clientX,y:e.touches[0].clientY};
+  c.addEventListener('mouseup',    () => isDragging = false);
+  c.addEventListener('mouseleave', () => isDragging = false);
+  c.addEventListener('touchstart', e => {
+    isDragging = true;
+    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     e.preventDefault();
-  },{passive:false});
-  c.addEventListener('touchend',()=>isDragging=false);
-  let lastPinch=0;
-  c.addEventListener('touchstart',e=>{if(e.touches.length===2) lastPinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);});
-  c.addEventListener('touchmove',e=>{
-    if(e.touches.length===2){
-      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-      panoCamera.fov=Math.max(30,Math.min(90,panoCamera.fov+(lastPinch-d)*0.1));
-      panoCamera.updateProjectionMatrix();lastPinch=d;
+  }, { passive: false });
+  c.addEventListener('touchmove', e => {
+    if (!isDragging) return;
+    cameraRotation.y += (e.touches[0].clientX - previousMousePosition.x) * 0.005;
+    cameraRotation.x += (e.touches[0].clientY - previousMousePosition.y) * 0.005;
+    cameraRotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, cameraRotation.x));
+    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    e.preventDefault();
+  }, { passive: false });
+  c.addEventListener('touchend', () => isDragging = false);
+  let lastPinch = 0;
+  c.addEventListener('touchstart', e => {
+    if (e.touches.length === 2)
+      lastPinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  });
+  c.addEventListener('touchmove', e => {
+    if (e.touches.length === 2) {
+      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      panoCamera.fov = Math.max(30, Math.min(90, panoCamera.fov + (lastPinch - d) * 0.1));
+      panoCamera.updateProjectionMatrix();
+      lastPinch = d;
     }
   });
-  window.addEventListener('resize',()=>{
-    if(!panoRenderer) return;
-    panoCamera.aspect=window.innerWidth/window.innerHeight;
+  window.addEventListener('resize', () => {
+    if (!panoRenderer) return;
+    panoCamera.aspect = window.innerWidth / window.innerHeight;
     panoCamera.updateProjectionMatrix();
-    panoRenderer.setSize(window.innerWidth,window.innerHeight);
+    panoRenderer.setSize(window.innerWidth, window.innerHeight);
   });
 }
 
-async function setPanoMode(mode){
-  panoMode=mode;
-  ['modeLive','modeGyro','modeDrag'].forEach(id=>{const b=document.getElementById(id);if(b) b.style.background='rgba(255,255,255,0.2)';});
-  const activeId='mode'+mode.charAt(0).toUpperCase()+mode.slice(1);
-  if(document.getElementById(activeId)) document.getElementById(activeId).style.background='#7c3aed';
-  const instr=document.getElementById('panoInstructions');
-  if(mode==='live'){
-    instr.textContent='📷 Live camera mapped to 360° sphere';
-    try{
-      panoStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
-      const video=document.getElementById('video360');video.srcObject=panoStream;await video.play();
-    }catch(e){alert('Camera access needed for live mode');setPanoMode('drag');}
-  } else if(mode==='gyro'){
-    instr.textContent='📱 Move your phone to look around';
-    if(panoStream){panoStream.getTracks().forEach(t=>t.stop());panoStream=null;}
-    if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
-      try{await DeviceOrientationEvent.requestPermission();}catch(e){}
+async function setPanoMode(mode) {
+  panoMode = mode;
+  ['modeLive','modeGyro','modeDrag'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.style.background = 'rgba(255,255,255,0.2)';
+  });
+  if (mode === 'live') {
+    const b = document.getElementById('modeLive');
+    if (b) b.style.background = '#7c3aed';
+    const instr = document.getElementById('panoInstructions');
+    if (instr) instr.textContent = '\u{1F4F7} Live camera \u2014 flat view captured on save';
+    try {
+      panoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      const video = document.getElementById('video360');
+      video.srcObject = panoStream;
+      await video.play();
+    } catch (e) {
+      alert('Camera access needed for live mode. Switching to drag mode.');
+      setPanoMode('drag');
     }
-    window.addEventListener('deviceorientation',handleGyro360);
+  } else if (mode === 'gyro') {
+    const b = document.getElementById('modeGyro');
+    if (b) b.style.background = '#7c3aed';
+    const instr = document.getElementById('panoInstructions');
+    if (instr) instr.textContent = '\u{1F4F1} Tilt your device to look around';
+    if (panoStream) { panoStream.getTracks().forEach(t => t.stop()); panoStream = null; }
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
+    }
+    window.addEventListener('deviceorientation', handleGyro360);
   } else {
-    instr.textContent='👆 Drag to look around • Pinch to zoom';
-    if(panoStream){panoStream.getTracks().forEach(t=>t.stop());panoStream=null;}
-    window.removeEventListener('deviceorientation',handleGyro360);
+    const b = document.getElementById('modeDrag');
+    if (b) b.style.background = '#7c3aed';
+    const instr = document.getElementById('panoInstructions');
+    if (instr) instr.textContent = '\u{1F446} Drag to look around \u2022 Pinch to zoom';
+    if (panoStream) { panoStream.getTracks().forEach(t => t.stop()); panoStream = null; }
+    window.removeEventListener('deviceorientation', handleGyro360);
   }
 }
 
-function handleGyro360(e){
-  if(panoMode!=='gyro') return;
-  cameraRotation.y=-(e.alpha||0)*Math.PI/180;
-  cameraRotation.x=((e.beta||0)-90)*Math.PI/180;
-  const deg=Math.round(e.alpha||0);
-  const dirs=['N','NE','E','SE','S','SW','W','NW'];
-  const dir=dirs[Math.round(deg/45)%8];
-  const compass=document.getElementById('compassDir');
-  if(compass) compass.textContent='🧭 '+dir+' '+deg+'°';
+function handleGyro360(e) {
+  if (panoMode !== 'gyro') return;
+  cameraRotation.y = -(e.alpha || 0) * Math.PI / 180;
+  cameraRotation.x = ((e.beta  || 0) - 90) * Math.PI / 180;
+  const deg  = Math.round(e.alpha || 0);
+  const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+  const dir  = dirs[Math.round(deg / 45) % 8];
+  const el   = document.getElementById('compassDir');
+  if (el) el.textContent = '\u{1F9ED} ' + dir + ' ' + deg + '\u00b0';
 }
 
-async function start360View(){
-  document.getElementById('modal360').style.display='block';
-  document.body.style.overflow='hidden';
-  if(!panoRenderer) init360Panorama();
-  setPanoMode('drag');
+async function start360View(mode) {
+  mode = mode || 'drag';
+  document.getElementById('modal360').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  if (!panoRenderer) init360Panorama();
+  setTimeout(() => setPanoMode(mode), 100);
 }
 
-function close360View(){
-  document.getElementById('modal360').style.display='none';
-  document.body.style.overflow='';
-  if(panoStream){panoStream.getTracks().forEach(t=>t.stop());panoStream=null;}
-  window.removeEventListener('deviceorientation',handleGyro360);
-  if(panoAnimFrame){cancelAnimationFrame(panoAnimFrame);panoAnimFrame=null;}
-  if(panoRenderer){
+function close360View() {
+  document.getElementById('modal360').style.display = 'none';
+  document.body.style.overflow = '';
+  if (panoStream) { panoStream.getTracks().forEach(t => t.stop()); panoStream = null; }
+  window.removeEventListener('deviceorientation', handleGyro360);
+  if (panoAnimFrame) { cancelAnimationFrame(panoAnimFrame); panoAnimFrame = null; }
+  if (panoRenderer) {
     panoRenderer.dispose();
-    const c=document.getElementById('panoramaContainer');
-    if(c) c.innerHTML='';
-    panoRenderer=null;panoScene=null;panoCamera=null;panoSphere=null;
+    const c = document.getElementById('panoramaContainer');
+    if (c) c.innerHTML = '';
+    panoRenderer = null; panoScene = null; panoCamera = null; panoSphere = null;
   }
 }
 
-document.getElementById('capture360btn').addEventListener('click',function(){
-  const flash=document.createElement('div');
-  flash.style.cssText='position:fixed;inset:0;background:white;opacity:0.9;z-index:99999;transition:opacity 0.4s';
+document.getElementById('capture360btn').addEventListener('click', function () {
+  if (!panoRenderer) return;
+  const flash = document.createElement('div');
+  flash.style.cssText = 'position:fixed;inset:0;background:white;opacity:0.9;z-index:99999;transition:opacity 0.4s;pointer-events:none;';
   document.body.appendChild(flash);
-  setTimeout(()=>flash.style.opacity='0',50);
-  setTimeout(()=>flash.remove(),450);
-  if(panoRenderer){
-    panoRenderer.render(panoScene,panoCamera);
-    panoRenderer.domElement.toBlob(blob=>{
-      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-      a.download='360-room-view.jpg';a.click();
-    },'image/jpeg',0.92);
+  setTimeout(() => flash.style.opacity = '0', 50);
+  setTimeout(() => flash.remove(), 450);
+  if (panoMode === 'live') {
+    const video = document.getElementById('video360');
+    if (!video || !video.videoWidth) { alert('Camera not ready yet.'); return; }
+    const offscreen = document.createElement('canvas');
+    offscreen.width  = video.videoWidth;
+    offscreen.height = video.videoHeight;
+    offscreen.getContext('2d').drawImage(video, 0, 0);
+    offscreen.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'gruha-alankara-live-' + Date.now() + '.jpg';
+      a.click();
+    }, 'image/jpeg', 0.92);
+  } else {
+    panoRenderer.render(panoScene, panoCamera);
+    panoRenderer.domElement.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'gruha-alankara-360-' + Date.now() + '.jpg';
+      a.click();
+    }, 'image/jpeg', 0.92);
   }
 });
-document.getElementById('close360').addEventListener('click',close360View);
+
+document.getElementById('close360').addEventListener('click', close360View);
 </script>
 {% endblock %}

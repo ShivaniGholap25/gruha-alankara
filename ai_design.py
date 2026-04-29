@@ -1,131 +1,236 @@
 import os
-import base64
 import json
-import random
+import base64
+from PIL import Image, ImageStat
+from google import genai
+from google.genai import types
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 
-# ── Fallback design data (used when Claude is unavailable) ─────────────────
-_FALLBACK = {
-    "Modern Minimalist": {
-        "furniture": ["Low-profile sofa", "Glass coffee table", "Geometric shelving", "Platform bed", "Accent chair"],
-        "colors": ["#FFFFFF", "#000000", "#808080", "#F5F5F5"],
-        "materials": ["Glass", "Steel", "Concrete", "Light wood"],
-    },
-    "Scandinavian": {
-        "furniture": ["Platform Bed", "Dresser", "Nightstand", "Wooden Desk", "Accent Chair"],
-        "colors": ["#F5F0E8", "#2C5F2E", "#D4A373", "#FEFAE0"],
-        "materials": ["Pine wood", "Linen", "Wool", "Ceramic"],
-    },
-    "Industrial": {
-        "furniture": ["Leather Sofa", "Metal Bookshelf", "Concrete Coffee Table", "Iron Floor Lamp", "TV Stand"],
-        "colors": ["#2E2E2E", "#5A5A5A", "#8C7B75", "#B0A8A0"],
-        "materials": ["Raw steel", "Exposed brick", "Concrete", "Distressed wood"],
-    },
-    "Bohemian": {
-        "furniture": ["Rattan Chair", "Patterned Ottoman", "Low Coffee Table", "Hanging Lamp", "Open Shelf"],
-        "colors": ["#E76F51", "#2A9D8F", "#E9C46A", "#F4A261"],
-        "materials": ["Rattan", "Jute", "Cotton weave", "Carved wood"],
-    },
-    "Traditional": {
-        "furniture": ["Tufted Sofa", "Carved Side Table", "Classic Armchair", "Wood Console", "Display Cabinet"],
-        "colors": ["#7A4E2D", "#C9B79C", "#8B0000", "#F5E6CC"],
-        "materials": ["Teak wood", "Brass", "Velvet", "Marble"],
-    },
-    "Contemporary": {
-        "furniture": ["Modular Sofa", "Accent Chair", "Smart TV Unit", "Glass Center Table", "Statement Lamp"],
-        "colors": ["#D9D9D9", "#4A4E69", "#9A8C98", "#F2E9E4"],
-        "materials": ["Tempered glass", "Matte metal", "Engineered wood", "Textured fabric"],
-    },
-}
+# ─────────────────────────────────────────────
+# Public entry points
+# ─────────────────────────────────────────────
 
-NOT_A_ROOM = "NOT_A_ROOM"
-
-_VISION_PROMPT = """You are an interior design AI. Analyse this room photo.
-If this is NOT a room interior (e.g. street, landscape, person, food, car), respond with exactly:
-NOT_A_ROOM
-
-If it IS a room interior, respond with JSON only (no markdown, no code fences):
-{"room_type": string, "style": string, "detected_colors": ["#hex1","#hex2","#hex3"], "furniture_suggestions": [{"name": string, "reason": string, "price_inr": integer}, ...3-5 items], "layout_tip": string}
-
-Prices must reflect real Indian market rates (sofa ₹15000-₹80000, chair ₹4000-₹18000, table ₹8000-₹35000, lamp ₹2500-₹12000, shelf ₹6000-₹25000)."""
+def analyze_room_image(image_path: str) -> dict:
+    if GEMINI_API_KEY:
+        try:
+            return _gemini_analyze(image_path)
+        except Exception as e:
+            print(f"[ai_design] Gemini error, using PIL fallback: {e}")
+    return _pil_analyze(image_path)
 
 
-def analyze_room_with_vision(image_path: str) -> dict | str:
-    """
-    Call Claude claude-sonnet-4-20250514 with vision to analyse a room image.
-    Returns parsed dict on success, NOT_A_ROOM string if not a room,
-    or None if Claude is unavailable (caller falls back to PIL analysis).
-    """
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        return None  # no key → caller uses PIL fallback
-
-    try:
-        import anthropic
-
-        with open(image_path, "rb") as f:
-            raw = f.read()
-        b64 = base64.standard_b64encode(raw).decode("utf-8")
-
-        # Detect media type from file header
-        if raw[:3] == b"\xff\xd8\xff":
-            media_type = "image/jpeg"
-        elif raw[:8] == b"\x89PNG\r\n\x1a\n":
-            media_type = "image/png"
-        elif raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
-            media_type = "image/webp"
-        else:
-            media_type = "image/jpeg"
-
-        client = anthropic.Anthropic(api_key=api_key)
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": b64,
-                            },
-                        },
-                        {"type": "text", "text": _VISION_PROMPT},
-                    ],
-                }
-            ],
-        )
-
-        text = message.content[0].text.strip()
-
-        if text == NOT_A_ROOM:
-            return NOT_A_ROOM
-
-        # Strip accidental markdown fences
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-        text = text.strip()
-
-        return json.loads(text)
-
-    except Exception:
-        return None  # any error → PIL fallback
+def generate_design(style_theme: str, budget: int = 50000, room_type: str = "Living Room") -> dict:
+    if GEMINI_API_KEY:
+        try:
+            return _gemini_design(style_theme, budget, room_type)
+        except Exception as e:
+            print(f"[ai_design] Gemini design error, using rule fallback: {e}")
+    return _rule_based_design(style_theme, budget, room_type)
 
 
-def get_fallback_design(style_theme: str) -> dict:
-    data = _FALLBACK.get(style_theme, _FALLBACK["Modern Minimalist"])
+# ─────────────────────────────────────────────
+# Gemini vision analysis
+# ─────────────────────────────────────────────
+
+def _gemini_analyze(image_path: str) -> dict:
+    import PIL.Image
+    img = PIL.Image.open(image_path)
+    prompt = """You are an interior design analyst. Look at this image carefully.
+
+FIRST: Is this a room interior such as bedroom, living room, kitchen, bathroom, office, or dining room?
+
+If it is NOT a room interior, respond with only this exact JSON and nothing else:
+{"not_a_room": true}
+
+If it IS a room interior, respond with only this JSON and nothing else, no markdown, no explanation:
+{"room_type": "<detected room type>","dimensions": {"width": <estimated feet as number>, "length": <estimated feet as number>, "height": <estimated feet as number>, "area": <sq ft as number>},"lighting": {"quality": "<natural or artificial or mixed>", "brightness": <0 to 100 as number>, "description": "<one sentence>"},"colors": ["<hex1>", "<hex2>", "<hex3>", "<hex4>", "<hex5>"],"features": {"complexity": "<simple or moderate or complex>", "notable": "<key design feature in 5 words>"},"furniture_visible": ["<item1>", "<item2>"],"style_hint": "<modern or traditional or bohemian or scandinavian or industrial or contemporary>"}"""
+
+    response = _client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[img, prompt]
+    )
+    text = response.text.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    text = text.strip()
+    data = json.loads(text)
+    if data.get("not_a_room"):
+        return {
+            "error": "not_a_room",
+            "message": "Please upload a photo of a room (bedroom, living room, kitchen, etc.)"
+        }
+    return data
+
+
+# ─────────────────────────────────────────────
+# Gemini design generation
+# ─────────────────────────────────────────────
+
+def _gemini_design(style_theme: str, budget: int, room_type: str) -> dict:
+    prompt = f"""You are an expert Indian interior designer. Create a complete design plan.
+Style: {style_theme}
+Budget: Rs.{budget:,}
+Room type: {room_type}
+
+Respond with only this JSON, no markdown, no explanation:
+{{"style_theme": "{style_theme}","description": "<2 sentence style description>","furniture": [{{"name": "<item name>", "quantity": 1, "priority": "essential", "price_inr": <realistic Indian market price as number>}},{{"name": "<item name>", "quantity": 1, "priority": "essential", "price_inr": <price as number>}},{{"name": "<item name>", "quantity": 1, "priority": "recommended", "price_inr": <price as number>}},{{"name": "<item name>", "quantity": 1, "priority": "optional", "price_inr": <price as number>}}],"colors": ["<hex1>", "<hex2>", "<hex3>", "<hex4>"],"materials": ["<material1>", "<material2>", "<material3>"],"layout_tips": ["<tip1>", "<tip2>", "<tip3>"],"ai_story": "<3 sentences about how this design feels and why it suits the room>","space_utilization": <number between 60 and 95>,"budget_breakdown": [{{"category": "Furniture", "percent": 45, "amount": {int(budget*0.45)}}},{{"category": "Flooring", "percent": 20, "amount": {int(budget*0.20)}}},{{"category": "Lighting", "percent": 15, "amount": {int(budget*0.15)}}},{{"category": "Decor", "percent": 12, "amount": {int(budget*0.12)}}},{{"category": "Labour", "percent": 8, "amount": {int(budget*0.08)}}}],"savings_tips": ["<tip1>", "<tip2>", "<tip3>"]}}"""
+
+    response = _client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=prompt
+    )
+    text = response.text.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    return json.loads(text.strip())
+
+
+# ─────────────────────────────────────────────
+# PIL fallback — used when no API key present
+# ─────────────────────────────────────────────
+
+def _pil_analyze(image_path: str) -> dict:
+    img = Image.open(image_path).convert("RGB")
+    w, h = img.size
+    stat = ImageStat.Stat(img)
+    brightness = int(sum(stat.mean[:3]) / 3)
+    quality = "natural" if brightness > 120 else "artificial" if brightness < 80 else "mixed"
+    small = img.resize((50, 50))
+    quantized = small.quantize(5)
+    palette = quantized.getpalette()[:15]
+    colors = ["#{:02x}{:02x}{:02x}".format(palette[i], palette[i+1], palette[i+2]) for i in range(0, 15, 3)]
     return {
-        "furniture": data["furniture"],
-        "color_scheme": data["colors"],
-        "materials": data["materials"],
-        "placement_tips": f"Arrange furniture to maximise space flow for {style_theme} style.",
+        "room_type": "living_room",
+        "dimensions": {
+            "width": round(w * 0.05, 1),
+            "length": round(h * 0.05, 1),
+            "height": 9.0,
+            "area": round(w * 0.05 * h * 0.05, 1)
+        },
+        "lighting": {"quality": quality, "brightness": brightness, "description": "Estimated via image analysis"},
+        "colors": colors,
+        "features": {"complexity": "moderate", "notable": "Estimated via image analysis"},
+        "furniture_visible": [],
+        "style_hint": "modern"
     }
 
 
-def generate_design(image_path: str, style_theme: str) -> dict:
-    return get_fallback_design(style_theme)
+# ─────────────────────────────────────────────
+# Rule-based design fallback
+# ─────────────────────────────────────────────
+
+STYLE_DATA = {
+    "Modern Minimalist": {
+        "description": "Clean lines and a neutral palette create a serene, clutter-free environment.",
+        "furniture": [
+            {"name": "Low-profile sofa 3-seater", "quantity": 1, "priority": "essential", "price_inr": 28000},
+            {"name": "Tempered glass coffee table", "quantity": 1, "priority": "essential", "price_inr": 12000},
+            {"name": "Floating TV unit", "quantity": 1, "priority": "essential", "price_inr": 18000},
+            {"name": "Accent armchair", "quantity": 1, "priority": "recommended", "price_inr": 9500},
+        ],
+        "colors": ["#F5F5F0", "#2C2C2C", "#C0A882", "#7D9B8A"],
+        "materials": ["Engineered wood", "Tempered glass", "Microfiber fabric"],
+    },
+    "Scandinavian": {
+        "description": "Functional warmth with light wood tones and cozy textiles.",
+        "furniture": [
+            {"name": "Solid pine wood sofa", "quantity": 1, "priority": "essential", "price_inr": 32000},
+            {"name": "Round birch coffee table", "quantity": 1, "priority": "essential", "price_inr": 9500},
+            {"name": "Knitted throw and cushions set", "quantity": 1, "priority": "essential", "price_inr": 3500},
+            {"name": "Pendant lamp linen shade", "quantity": 1, "priority": "recommended", "price_inr": 6800},
+        ],
+        "colors": ["#FAFAF7", "#D4C4A0", "#8BA8B0", "#4A5568"],
+        "materials": ["Light pine wood", "Linen fabric", "Wool"],
+    },
+    "Industrial": {
+        "description": "Raw textures, exposed materials, and utilitarian design with urban character.",
+        "furniture": [
+            {"name": "Leather sectional sofa", "quantity": 1, "priority": "essential", "price_inr": 45000},
+            {"name": "Metal-wood coffee table", "quantity": 1, "priority": "essential", "price_inr": 14500},
+            {"name": "Industrial bookshelf metal", "quantity": 1, "priority": "recommended", "price_inr": 22000},
+            {"name": "Edison bulb pendant 3-pack", "quantity": 1, "priority": "recommended", "price_inr": 4500},
+        ],
+        "colors": ["#3D3D3D", "#8B7355", "#C0C0C0", "#1A1A1A"],
+        "materials": ["Reclaimed wood", "Wrought iron", "Aged leather"],
+    },
+    "Bohemian": {
+        "description": "Layered textiles, global patterns, and eclectic art create vibrant soulfulness.",
+        "furniture": [
+            {"name": "Low-floor sofa with bolsters", "quantity": 1, "priority": "essential", "price_inr": 22000},
+            {"name": "Jute macrame wall art set", "quantity": 1, "priority": "essential", "price_inr": 5500},
+            {"name": "Carved wood side table", "quantity": 1, "priority": "recommended", "price_inr": 8000},
+            {"name": "Patterned area rug 6x9 ft", "quantity": 1, "priority": "essential", "price_inr": 12000},
+        ],
+        "colors": ["#C4955A", "#8B4513", "#6B8E6B", "#9B59B6"],
+        "materials": ["Jute", "Hand-block printed cotton", "Teak wood"],
+    },
+    "Traditional": {
+        "description": "Rich wood tones, classic upholstery, and timeless Indian craftsmanship.",
+        "furniture": [
+            {"name": "Sheesham wood sofa set 3+1+1", "quantity": 1, "priority": "essential", "price_inr": 55000},
+            {"name": "Teak centre table with carving", "quantity": 1, "priority": "essential", "price_inr": 28000},
+            {"name": "Brass floor lamp", "quantity": 1, "priority": "recommended", "price_inr": 8500},
+            {"name": "Silk brocade curtains pair", "quantity": 1, "priority": "recommended", "price_inr": 7500},
+        ],
+        "colors": ["#8B4513", "#DAA520", "#F5DEB3", "#2F4F4F"],
+        "materials": ["Sheesham wood", "Teak", "Silk upholstery"],
+    },
+    "Contemporary": {
+        "description": "Current trends blended with comfort, bold accents on neutral bases.",
+        "furniture": [
+            {"name": "Sectional sofa L-shape", "quantity": 1, "priority": "essential", "price_inr": 42000},
+            {"name": "Sintered stone coffee table", "quantity": 1, "priority": "essential", "price_inr": 18500},
+            {"name": "Modular wall shelving", "quantity": 1, "priority": "recommended", "price_inr": 15000},
+            {"name": "Arc floor lamp", "quantity": 1, "priority": "recommended", "price_inr": 9500},
+        ],
+        "colors": ["#F0EDE8", "#2C3E50", "#E74C3C", "#BDC3C7"],
+        "materials": ["Sintered stone", "Velvet fabric", "Brushed steel"],
+    },
+}
+
+ROOM_TIPS = {
+    "living_room": ["Place sofa facing natural light", "Use a large area rug to anchor seating", "Keep TV at eye level"],
+    "bedroom":     ["Position bed on the longest wall", "Add blackout curtains for better sleep", "Use under-bed storage"],
+    "kitchen":     ["Maximise vertical storage with tall units", "Install under-cabinet LED strips", "Use a kitchen island if space allows"],
+    "bathroom":    ["Use light tiles to visually enlarge", "Install a rain shower for luxury feel", "Add floating vanity for storage"],
+    "office":      ["Place desk perpendicular to window", "Use cable management trays", "Add a plant for productivity"],
+    "dining_room": ["Choose a table 30 inches shorter than room", "Hang chandelier 30 to 36 inches above table", "Mirror on one wall doubles visual space"],
+}
+
+
+def _rule_based_design(style_theme: str, budget: int, room_type: str) -> dict:
+    style = STYLE_DATA.get(style_theme, STYLE_DATA["Modern Minimalist"])
+    tips  = ROOM_TIPS.get(room_type.lower().replace(" ", "_"), ROOM_TIPS["living_room"])
+    return {
+        "style_theme": style_theme,
+        "description": style["description"],
+        "furniture": style["furniture"],
+        "colors": style["colors"],
+        "materials": style["materials"],
+        "layout_tips": tips,
+        "ai_story": (
+            f"Your {room_type.replace('_', ' ')} deserves the warmth of {style_theme} design. "
+            f"With a budget of Rs.{budget:,}, you can create a space that feels curated and personal. "
+            f"Every piece selected here balances aesthetics with the practical needs of Indian living."
+        ),
+        "space_utilization": 78,
+        "budget_breakdown": [
+            {"category": "Furniture", "percent": 45, "amount": int(budget * 0.45)},
+            {"category": "Flooring",  "percent": 20, "amount": int(budget * 0.20)},
+            {"category": "Lighting",  "percent": 15, "amount": int(budget * 0.15)},
+            {"category": "Decor",     "percent": 12, "amount": int(budget * 0.12)},
+            {"category": "Labour",    "percent": 8,  "amount": int(budget * 0.08)},
+        ],
+        "savings_tips": [
+            "Buy furniture during Diwali or Navratri sales for 20 to 40 percent off",
+            "Consider second-hand sheesham wood from OLX for excellent quality",
+            "DIY decor items like macrame and painted pots save Rs.5000 to Rs.10000",
+        ],
+    }

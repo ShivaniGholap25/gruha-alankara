@@ -103,7 +103,6 @@ export default function HomePage() {
           </div>
           <div className="hero-highlights">
             <span>🏪 Nearby Shops</span>
-            <span>🎨 Style Quiz</span>
             <span>📊 Budget Calc</span>
             <span>🖼️ Gallery</span>
             <span>📷 AR Camera</span>

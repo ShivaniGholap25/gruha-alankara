@@ -12,7 +12,6 @@ import AnalyzeRoomPage from './pages/AnalyzeRoomPage'
 import CatalogPage from './pages/CatalogPage'
 import FurniturePage from './pages/FurniturePage'
 import MyBookingsPage from './pages/MyBookingsPage'
-import StyleQuizPage from './pages/StyleQuizPage'
 import BudgetCalcPage from './pages/BudgetCalcPage'
 import GalleryPage from './pages/GalleryPage'
 import NearbyShopsPage from './pages/NearbyShopsPage'
@@ -33,7 +32,6 @@ export default function App() {
           <Route path="/catalog" element={<ProtectedRoute><CatalogPage /></ProtectedRoute>} />
           <Route path="/furniture" element={<FurniturePage />} />
           <Route path="/my-bookings" element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
-          <Route path="/style-quiz" element={<StyleQuizPage />} />
           <Route path="/budget-calculator" element={<BudgetCalcPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/nearby-shops" element={<NearbyShopsPage />} />

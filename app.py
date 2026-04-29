@@ -24,9 +24,9 @@ except Exception:
     from sqlalchemy.sql import text
 from werkzeug.utils import secure_filename
 
-from ai_design import generate_design
+from ai_design import generate_design, analyze_room_image
 from buddy_agent import buddy_respond
-from models import db, User, Design, Furniture, Booking, init_db
+from models import db, User, Design, Furniture, Booking, Cart, Order, OrderItem, init_db
 
 
 logging.basicConfig(level=logging.INFO)
@@ -275,6 +275,10 @@ def create_app(test_config=None):
     def furniture_page():
         return render_template("furniture.html")
 
+    @app.route("/cart-page")
+    def cart_page():
+        return render_template("cart.html")
+
     @app.route("/get-furniture")
     def get_furniture():
         items = Furniture.query.all()
@@ -373,10 +377,6 @@ def create_app(test_config=None):
     @app.route("/gallery")
     def gallery():
         return render_template("gallery.html")
-
-    @app.route("/style-quiz")
-    def style_quiz():
-        return render_template("style_quiz.html")
 
     @app.route("/dashboard")
     def dashboard():
@@ -509,121 +509,56 @@ def create_app(test_config=None):
     def generate_design_route():
         payload = request.get_json(silent=True) or {}
         style_theme = str(payload.get("style_theme") or request.args.get("style") or "Modern Minimalist")
-        room_type = str(payload.get("room_type") or request.args.get("room_type") or "Living Room")
+        room_type   = str(payload.get("room_type") or request.args.get("room_type") or "Living Room")
         color_theme = str(payload.get("color_theme") or "Warm Neutrals")
         try:
             budget = int(float(payload.get("budget") or "50000"))
         except (TypeError, ValueError):
             budget = 50000
 
-        style_data = {
-            "Modern Minimalist": {
-                "desc": "Clean lines, neutral colors, and functional furniture with minimal clutter",
-                "colors": ["#FFFFFF", "#000000", "#808080", "#F5F5F5"],
-                "materials": ["Glass", "Steel", "Concrete", "Light wood"],
-                "story": "Your space focuses on clean geometry and breathable movement with understated luxury.",
-            },
-            "Scandinavian": {
-                "desc": "Bright airy spaces with natural materials and cozy textures",
-                "colors": ["#F5F0E8", "#2C5F2E", "#D4A373", "#FEFAE0"],
-                "materials": ["Pine wood", "Linen", "Wool", "Ceramic"],
-                "story": "Soft layers and warm daylight create an inviting everyday living environment.",
-            },
-            "Industrial": {
-                "desc": "Raw materials with urban character balancing exposed textures",
-                "colors": ["#2E2E2E", "#5A5A5A", "#8C7B75", "#B0A8A0"],
-                "materials": ["Raw steel", "Exposed brick", "Concrete", "Distressed wood"],
-                "story": "A bold urban vibe with layered metal and wood for confident visual rhythm.",
-            },
-            "Bohemian": {
-                "desc": "Eclectic mix of colors and textures with expressive accents",
-                "colors": ["#E76F51", "#2A9D8F", "#E9C46A", "#F4A261"],
-                "materials": ["Rattan", "Jute", "Cotton weave", "Carved wood"],
-                "story": "Artful detailing and layered textures bring a relaxed, story-driven ambiance.",
-            },
-            "Traditional": {
-                "desc": "Classic elegance with rich details and timeless finishes",
-                "colors": ["#7A4E2D", "#C9B79C", "#8B0000", "#F5E6CC"],
-                "materials": ["Teak wood", "Brass", "Velvet", "Marble"],
-                "story": "Timeless silhouettes and refined accents elevate formality and comfort together.",
-            },
-            "Contemporary": {
-                "desc": "Current trend-forward styling with flexible furniture",
-                "colors": ["#D9D9D9", "#4A4E69", "#9A8C98", "#F2E9E4"],
-                "materials": ["Tempered glass", "Matte metal", "Engineered wood", "Textured fabric"],
-                "story": "Balanced contrast and adaptive pieces keep the room current and highly functional.",
-            },
-        }
-        sd = style_data.get(style_theme, style_data["Modern Minimalist"])
+        result = generate_design(style_theme, budget, room_type)
 
-        room_furniture = {
-            "Living Room": ["Sofa", "Coffee Table", "TV Unit", "Accent Chair", "Floor Lamp"],
-            "Bedroom": ["Bed", "Wardrobe", "Bedside Tables", "Dressing Table", "Study Chair"],
-            "Kitchen": ["Cabinet", "Dining Table", "Dining Chairs", "Island", "Bar Stools"],
-            "Bathroom": ["Vanity", "Mirror Cabinet", "Towel Rack", "Storage Shelf", "Stool"],
-            "Office": ["Executive Desk", "Ergonomic Chair", "Bookshelf", "File Cabinet", "Desk Lamp"],
-            "Dining Room": ["Dining Table", "Chairs", "Sideboard", "Display Cabinet", "Pendant Light"],
-        }
-        selected_furniture = room_furniture.get(room_type, room_furniture["Living Room"])
-        priority_tags = ["High", "High", "Medium", "Medium", "Low"]
+        # Normalise keys so the frontend always gets what it expects
+        result.setdefault("style", style_theme)
+        result.setdefault("style_theme", style_theme)
+        result.setdefault("room_type", room_type)
+        result.setdefault("budget", budget)
+        result.setdefault("color_theme", color_theme)
+        result.setdefault("ai_status", "AI Design Complete")
 
+        # Build furniture_list from furniture array for frontend compatibility
+        raw_furniture = result.get("furniture", [])
         furniture_list = []
-        for idx, name in enumerate(selected_furniture):
-            price = int((budget * 0.45) / max(1, len(selected_furniture)))
-            price += idx * 1500
-            furniture_list.append({
-                "id": f"f_{idx+1}",
-                "name": name,
-                "price": price,
-                "price_inr": price,
-                "material": sd["materials"][idx % len(sd["materials"])],
-                "category": room_type.lower().replace(" ", "_"),
-                "priority": priority_tags[idx % len(priority_tags)],
-                "position": {"x": 0, "y": 0, "z": 0},
-            })
+        for idx, item in enumerate(raw_furniture):
+            if isinstance(item, dict):
+                furniture_list.append({
+                    "id": f"f_{idx+1}",
+                    "name": item.get("name", ""),
+                    "price": item.get("price_inr", 0),
+                    "price_inr": item.get("price_inr", 0),
+                    "material": (result.get("materials") or [""])[idx % max(len(result.get("materials") or [""]), 1)],
+                    "category": room_type.lower().replace(" ", "_"),
+                    "priority": item.get("priority", "recommended"),
+                    "position": {"x": 0, "y": 0, "z": 0},
+                })
+            else:
+                furniture_list.append({
+                    "id": f"f_{idx+1}",
+                    "name": str(item),
+                    "price": 0, "price_inr": 0,
+                    "material": "", "category": room_type.lower().replace(" ", "_"),
+                    "priority": "recommended", "position": {"x": 0, "y": 0, "z": 0},
+                })
 
-        furniture_total = int(budget * 0.45)
-        lighting_total = int(budget * 0.15)
-        decor_total = int(budget * 0.15)
-        paint_total = int(budget * 0.10)
-        labor_total = int(budget * 0.10)
-        contingency_total = max(0, budget - (furniture_total + lighting_total + decor_total + paint_total + labor_total))
+        result["furniture_list"] = furniture_list
+        result.setdefault("furniture", [f["name"] for f in furniture_list])
 
-        budget_breakdown = [
-            {"category": "Furniture", "percent": 45, "amount": furniture_total},
-            {"category": "Lighting", "percent": 15, "amount": lighting_total},
-            {"category": "Decor", "percent": 15, "amount": decor_total},
-            {"category": "Paint", "percent": 10, "amount": paint_total},
-            {"category": "Labor", "percent": 10, "amount": labor_total},
-            {"category": "Contingency", "percent": 5, "amount": contingency_total},
-        ]
+        # budget_split alias
+        result.setdefault("budget_split", result.get("budget_breakdown", []))
+        result.setdefault("layout_tips", result.get("layout_tips", []))
+        result.setdefault("savings_tips", result.get("savings_tips", []))
 
-        return jsonify({
-            "style": style_theme,
-            "style_theme": style_theme,
-            "room_type": room_type,
-            "budget": budget,
-            "color_theme": color_theme,
-            "description": sd["desc"],
-            "furniture": selected_furniture,
-            "furniture_list": furniture_list,
-            "colors": sd["colors"],
-            "materials": sd["materials"],
-            "ai_story": sd["story"],
-            "layout_tips": [
-                "Maintain clear movement pathways.",
-                "Balance visual weight across the room.",
-                "Layer task and ambient lighting.",
-            ],
-            "budget_split": budget_breakdown,
-            "budget_breakdown": budget_breakdown,
-            "savings_tips": [
-                "Reuse one existing furniture piece to reduce spend.",
-                "Buy lighting in combos for better unit pricing.",
-                "Reserve 5% contingency for final styling upgrades.",
-            ],
-            "ai_status": "AI Design Complete",
-        })
+        return jsonify(result)
 
     @app.route("/save-design", methods=["POST"])
     def save_design():
@@ -747,73 +682,31 @@ def create_app(test_config=None):
             with open(tmp_path, "wb") as fh:
                 fh.write(raw_bytes)
 
-            # ── Issue 1 — Claude vision analysis ─────────────────────────
-            from ai_design import analyze_room_with_vision, NOT_A_ROOM as _NOT_A_ROOM
-            vision_result = analyze_room_with_vision(tmp_path)
+            # ── Gemini vision analysis (falls back to PIL if no key) ──────
+            result = analyze_room_image(tmp_path)
 
-            if vision_result == _NOT_A_ROOM:
-                return jsonify({"error": "Please upload a photo of a room interior."}), 400
+            if result.get("error") == "not_a_room":
+                return jsonify({"error": result["message"]}), 422
 
-            if isinstance(vision_result, dict):
-                # Return Claude's rich result
-                return jsonify({
-                    "source": "claude",
-                    "room_type": vision_result.get("room_type", "Unknown"),
-                    "style": vision_result.get("style", "Modern"),
-                    "dimensions": {"width": round(w * 0.05, 2), "length": round(h * 0.05, 2), "height": 9.0, "area": round(w * 0.05 * h * 0.05, 2)},
-                    "colors": vision_result.get("detected_colors", []),
-                    "furniture_suggestions": vision_result.get("furniture_suggestions", []),
-                    "layout_tip": vision_result.get("layout_tip", ""),
-                    "lighting": {"quality": "Good", "brightness": int(ImageStat.Stat(image.convert("L")).mean[0])},
-                    "style_recommendations": [{"style": vision_result.get("style", "Modern"), "score": 95.0}],
-                    "image_path": f"uploads/{tmp_name}",
-                })
+            if result.get("error"):
+                return jsonify({"error": result["error"]}), 400
 
-            # ── PIL fallback (no Claude key or error) ─────────────────────
-            width_ft = round(w * 0.05, 2)
-            length_ft = round(h * 0.05, 2)
-            area = round(width_ft * length_ft, 2)
+            # Merge PIL-computed dimensions/brightness into Gemini result
             brightness = int(ImageStat.Stat(image.convert("L")).mean[0])
-            lighting_quality = "Excellent" if brightness >= 170 else "Good" if brightness >= 120 else "Moderate" if brightness >= 80 else "Low"
-            quantized = image.quantize(5)
-            palette = quantized.getpalette() or []
-            colors = [f"#{palette[i*3]:02x}{palette[i*3+1]:02x}{palette[i*3+2]:02x}" for i in range(5) if len(palette) >= (i+1)*3]
-            while len(colors) < 5:
-                colors.append("#2a2f45")
-
-            style_reference = {
-                "Modern Minimalist": ["#FFFFFF", "#000000", "#808080", "#F5F5F5"],
-                "Scandinavian": ["#F5F0E8", "#D4A373", "#CCD5AE", "#E9EDC9"],
-                "Industrial": ["#2E2E2E", "#5A5A5A", "#8C7B75", "#B0A8A0"],
-                "Bohemian": ["#E76F51", "#2A9D8F", "#E9C46A", "#F4A261"],
-                "Contemporary": ["#D9D9D9", "#4A4E69", "#9A8C98", "#F2E9E4"],
-            }
-
-            def _rgb(hex_color):
-                v = hex_color.lstrip("#")
-                return tuple(int(v[i:i+2], 16) for i in (0, 2, 4))
-
-            def _style_score(style_colors):
-                room_rgbs = [_rgb(c) for c in colors[:4]]
-                style_rgbs = [_rgb(c) for c in style_colors]
-                score = 0
-                for room_rgb in room_rgbs:
-                    min_dist = min(abs(room_rgb[0]-s[0])+abs(room_rgb[1]-s[1])+abs(room_rgb[2]-s[2]) for s in style_rgbs)
-                    score += max(0, 255 - (min_dist / 3))
-                return round((score / (len(room_rgbs) * 255)) * 100, 1)
-
-            style_scores = [{"style": s, "score": _style_score(c)} for s, c in style_reference.items()]
-            style_scores.sort(key=lambda x: x["score"], reverse=True)
-
-            return jsonify({
-                "source": "pil",
-                "dimensions": {"width": width_ft, "length": length_ft, "height": 9.0, "area": area},
-                "lighting": {"quality": lighting_quality, "brightness": brightness, "description": "Consider warm accent lights for evening ambiance."},
-                "colors": colors,
-                "features": {"complexity": "Medium", "edges": random.randint(3000, 5000), "orientation": "Landscape" if w >= h else "Portrait"},
-                "style_recommendations": style_scores[:3],
-                "image_path": f"uploads/{tmp_name}",
-            })
+            if "dimensions" not in result:
+                result["dimensions"] = {
+                    "width": round(w * 0.05, 2),
+                    "length": round(h * 0.05, 2),
+                    "height": 9.0,
+                    "area": round(w * 0.05 * h * 0.05, 2),
+                }
+            if "lighting" not in result:
+                result["lighting"] = {"quality": "Good", "brightness": brightness, "description": "Estimated via image analysis"}
+            result["image_path"] = f"uploads/{tmp_name}"
+            result["style_recommendations"] = [
+                {"style": result.get("style_hint", "Modern Minimalist"), "score": 95.0}
+            ]
+            return jsonify(result)
 
         except Exception as e:
             logger.exception("Room analysis failed: %s", e)
@@ -852,17 +745,17 @@ def create_app(test_config=None):
 
     @app.route("/buddy", methods=["POST"])
     def buddy_chat():
-        user_id = _get_user_id()
-        if not user_id:
-            return jsonify({"error": "Unauthorized"}), 401
+        user_id = _get_user_id()   # None for guests — allowed
         payload = request.get_json(silent=True) or {}
         message = str(payload.get("message", "")).strip()
         language = str(payload.get("language", "en")).strip()
         if not message:
-            return jsonify({"error": "message is required"}), 400
+            return jsonify({"text": "Please type a message.", "reply": "Please type a message.", "audio_url": None, "action": None})
         action = _parse_buddy_action(message)
         base = buddy_respond(message, user_id, language)
         reply_text = "Namaste! I am Alankara. " + (base.get("text") or "Share your preferred room change and I will help.")
+        if not user_id:
+            reply_text = "You are using guest mode. " + reply_text
         return jsonify({
             "text": reply_text,
             "reply": reply_text,
@@ -889,6 +782,107 @@ def create_app(test_config=None):
         db.session.add_all(items)
         db.session.commit()
         return jsonify({"success": True, "message": f"Seeded {len(items)} items.", "count": len(items)})
+
+    @app.route("/add-to-cart", methods=["POST"])
+    def add_to_cart():
+        if "user_id" not in session:
+            return jsonify({"error": "Login required"}), 401
+        data = request.get_json(silent=True) or {}
+        furniture_id = data.get("furniture_id")
+        if not furniture_id:
+            return jsonify({"error": "furniture_id required"}), 400
+        item = Cart.query.filter_by(user_id=session["user_id"], furniture_id=furniture_id).first()
+        if item:
+            item.quantity += 1
+        else:
+            item = Cart(user_id=session["user_id"], furniture_id=furniture_id, quantity=1)
+            db.session.add(item)
+        db.session.commit()
+        return jsonify({"success": True})
+
+    @app.route("/cart")
+    def get_cart():
+        if "user_id" not in session:
+            return jsonify([])
+        items = Cart.query.filter_by(user_id=session["user_id"]).all()
+        return jsonify([
+            {
+                "id":       item.id,
+                "name":     item.furniture.name,
+                "price":    item.furniture.price,
+                "quantity": item.quantity,
+            }
+            for item in items
+        ])
+
+    @app.route("/remove-from-cart/<int:id>", methods=["POST"])
+    def remove_from_cart(id):
+        if "user_id" not in session:
+            return jsonify({"error": "Login required"}), 401
+        item = Cart.query.get(id)
+        if item and item.user_id == session["user_id"]:
+            db.session.delete(item)
+            db.session.commit()
+        return jsonify({"success": True})
+
+    @app.route("/checkout", methods=["POST"])
+    def checkout():
+        if "user_id" not in session:
+            return jsonify({"error": "Login required"}), 401
+        items = Cart.query.filter_by(user_id=session["user_id"]).all()
+        if not items:
+            return jsonify({"error": "Cart is empty"}), 400
+        total = sum(i.quantity * i.furniture.price for i in items)
+        order = Order(user_id=session["user_id"], total_amount=total)
+        db.session.add(order)
+        db.session.flush()
+        for i in items:
+            db.session.add(OrderItem(
+                order_id=order.id,
+                furniture_id=i.furniture_id,
+                quantity=i.quantity,
+                price=i.furniture.price,
+            ))
+        Cart.query.filter_by(user_id=session["user_id"]).delete()
+        db.session.commit()
+        return jsonify({"success": True, "order_id": order.id, "total": total})
+
+    # ── Session-based cart helpers (used by furniture page quick-cart) ────────
+    @app.route("/session-cart/add", methods=["POST"])
+    def session_cart_add():
+        data = request.get_json(silent=True) or {}
+        fid  = data.get("furniture_id")
+        if not fid:
+            return jsonify({"error": "furniture_id required"}), 400
+        cart = session.get("cart", [])
+        cart.append(int(fid))
+        session["cart"] = cart
+        session.modified = True
+        return jsonify({"success": True, "cart_count": len(cart)})
+
+    @app.route("/session-cart")
+    def session_cart_get():
+        cart = session.get("cart", [])
+        if not cart:
+            return jsonify([])
+        items = Furniture.query.filter(Furniture.id.in_(cart)).all()
+        id_map = {i.id: i for i in items}
+        result = []
+        for fid in cart:
+            item = id_map.get(fid)
+            if item:
+                result.append({"id": item.id, "name": item.name,
+                                "price": item.price, "category": item.category})
+        return jsonify(result)
+
+    @app.route("/session-cart/remove/<int:item_id>", methods=["POST"])
+    def session_cart_remove(item_id):
+        cart = session.get("cart", [])
+        if item_id in cart:
+            cart.remove(item_id)
+            session["cart"] = cart
+            session.modified = True
+        return jsonify({"success": True, "cart_count": len(cart)})
 
     @app.errorhandler(404)
     def not_found(e):

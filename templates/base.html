@@ -9,11 +9,23 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#0d0d1a;color:#e2e8f0;font-family:"Segoe UI",sans-serif;min-height:100vh;}
-.navbar{display:flex;justify-content:space-between;align-items:center;padding:1rem 2rem;background:rgba(13,13,26,0.95);border-bottom:1px solid #2d3748;position:sticky;top:0;z-index:100;}
-.nav-brand{font-size:1.3rem;font-weight:700;color:#818cf8;text-decoration:none;}
-.nav-links{display:flex;gap:2rem;}
-.nav-link{color:#94a3b8;text-decoration:none;font-size:0.95rem;}
-.nav-link:hover,.nav-link.active{color:white;}
+.navbar{display:flex;align-items:center;padding:0 2rem;height:58px;background:#0d0d1a;border-bottom:1px solid #2d3748;position:sticky;top:0;z-index:100;gap:0;}
+.nav-brand{font-size:1.15rem;font-weight:700;color:#7c3aed;text-decoration:none;white-space:nowrap;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.nav-links{display:flex;gap:0;margin-left:32px;align-items:center;}
+.nav-link{color:#94a3b8;text-decoration:none;font-size:0.875rem;font-weight:500;padding:6px 14px;border-radius:6px;transition:color .2s,background .2s;white-space:nowrap;}
+.nav-link:hover{color:#e2e8f0;background:rgba(255,255,255,0.05);}
+.nav-link.active{color:#a78bfa;}
+.user-btn{cursor:pointer;color:#e2e8f0;padding:6px 12px;border-radius:8px;background:rgba(124,58,237,0.15);border:1px solid #334155;font-size:0.875rem;font-weight:600;display:flex;align-items:center;gap:6px;transition:background .2s;}
+.user-btn:hover{background:rgba(124,58,237,0.25);}
+.dropdown{display:none;position:absolute;right:0;top:calc(100% + 6px);background:#1a1a2e;border:1px solid #2d3748;border-radius:10px;min-width:160px;box-shadow:0 10px 40px rgba(0,0,0,0.5);overflow:hidden;z-index:200;}
+.dropdown a{display:flex;align-items:center;gap:10px;padding:0.7rem 1rem;color:#e2e8f0;text-decoration:none;font-size:0.85rem;transition:background .15s;}
+.dropdown a:hover{background:#16213e;}
+.dropdown a.danger{color:#ef4444;}
+.dropdown-divider{border-top:1px solid #2d3748;}
+.login-btn{color:#cbd5e1;padding:6px 14px;border:1px solid #334155;border-radius:8px;text-decoration:none;font-size:0.875rem;font-weight:500;transition:background .2s;}
+.login-btn:hover{background:#1a1a2e;color:#e2e8f0;}
+.register-btn{background:#7c3aed;color:#fff;padding:6px 14px;border-radius:8px;text-decoration:none;font-size:0.875rem;font-weight:600;transition:background .2s;}
+.register-btn:hover{background:#6d28d9;}
 .flash{padding:0.75rem 1.5rem;margin:1rem 2rem;border-radius:8px;}
 .flash-error{background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#ef4444;}
 .flash-success{background:rgba(16,185,129,0.15);border:1px solid #10b981;color:#10b981;}
@@ -60,15 +72,49 @@ select:focus,input:focus{outline:none;border-color:#7c3aed;}
 </head>
 <body>
 <nav class="navbar">
-  <a href="/" class="nav-brand"><i class="fas fa-home" style="margin-right:8px;"></i>Gruha Alankara</a>
+  <a href="/" class="nav-brand">🏠 Gruha Alankara</a>
   <div class="nav-links">
     <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a>
     <a href="/analyze" class="nav-link {% if request.path == '/analyze' %}active{% endif %}">Analyze Room</a>
     <a href="/design" class="nav-link {% if request.path == '/design' %}active{% endif %}">Design Studio</a>
+    <a href="/furniture" class="nav-link {% if request.path == '/furniture' %}active{% endif %}">Furniture</a>
     <a href="/catalog" class="nav-link {% if request.path == '/catalog' %}active{% endif %}">My Catalog</a>
-    <a href="/style-quiz" class="nav-link {% if request.path == '/style-quiz' %}active{% endif %}">Style Quiz</a>
+  </div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:12px;">
+    {% if session.get('username') %}
+    <div style="position:relative;">
+      <div class="user-btn" onclick="toggleUserMenu()">
+        <i class="fas fa-user-circle" style="color:#a78bfa;"></i>
+        {{ session['username'] }}
+        <i class="fas fa-chevron-down" style="font-size:0.65rem;color:#94a3b8;"></i>
+      </div>
+      <div id="user-dropdown" class="dropdown">
+        <a href="/dashboard"><i class="fas fa-tachometer-alt" style="color:#818cf8;width:16px;"></i> Dashboard</a>
+        <a href="/my-bookings"><i class="fas fa-calendar-check" style="color:#818cf8;width:16px;"></i> My Bookings</a>
+        <a href="/cart-page"><i class="fas fa-shopping-cart" style="color:#818cf8;width:16px;"></i> Cart</a>
+        <div class="dropdown-divider"></div>
+        <a href="/logout" class="danger"><i class="fas fa-sign-out-alt" style="width:16px;"></i> Logout</a>
+      </div>
+    </div>
+    {% else %}
+    <a href="/login" class="login-btn">Login</a>
+    <a href="/register" class="register-btn">Register</a>
+    {% endif %}
   </div>
 </nav>
+<script>
+function toggleUserMenu() {
+  const menu = document.getElementById('user-dropdown');
+  if (menu) menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+}
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('user-dropdown');
+  if (!menu) return;
+  if (!e.target.closest('.user-btn') && !e.target.closest('.dropdown')) {
+    menu.style.display = 'none';
+  }
+});
+</script>
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
     {% for category, message in messages %}

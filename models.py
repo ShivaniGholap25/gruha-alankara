@@ -58,6 +58,30 @@ class Booking(db.Model):
 	furniture = db.relationship("Furniture", back_populates="bookings")
 
 
+class Cart(db.Model):
+	id           = db.Column(db.Integer, primary_key=True)
+	user_id      = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+	furniture_id = db.Column(db.Integer, db.ForeignKey('furniture.id'), nullable=False)
+	quantity     = db.Column(db.Integer, default=1)
+	furniture    = db.relationship('Furniture')
+
+
+class Order(db.Model):
+	id           = db.Column(db.Integer, primary_key=True)
+	user_id      = db.Column(db.Integer, nullable=False)
+	total_amount = db.Column(db.Integer, nullable=False)
+	status       = db.Column(db.String(50), default='placed')
+	created_at   = db.Column(db.DateTime, default=db.func.now())
+
+
+class OrderItem(db.Model):
+	id           = db.Column(db.Integer, primary_key=True)
+	order_id     = db.Column(db.Integer, nullable=False)
+	furniture_id = db.Column(db.Integer, nullable=False)
+	quantity     = db.Column(db.Integer, default=1)
+	price        = db.Column(db.Integer)
+
+
 def init_db(app) -> None:
 	db.init_app(app)
 	with app.app_context():

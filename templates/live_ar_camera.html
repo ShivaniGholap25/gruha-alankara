@@ -2,520 +2,234 @@
 {% block head %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
-#ar-root{position:fixed;inset:0;background:#0d0d1a;z-index:200;display:flex;flex-direction:column;overflow:hidden;}
-#ar-wrapper{position:absolute;inset:0;}
-#camera-feed{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;}
-#ar-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;}
-#ar-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;}
-#ar-topbar{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(13,13,26,0.85);backdrop-filter:blur(8px);border-bottom:1px solid #1e293b;}
-#ar-bottombar{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(13,13,26,0.85);backdrop-filter:blur(8px);border-top:1px solid #1e293b;margin-top:auto;}
+/* ── Reset & base ── */
+*{-webkit-tap-highlight-color:transparent;box-sizing:border-box;}
+canvas,video{touch-action:none;}
+
+/* ── Full-screen AR root ── */
+#ar-root{
+  position:fixed;inset:0;background:#0d0d1a;
+  z-index:200;display:flex;flex-direction:column;overflow:hidden;
+}
+
+/* ── Video layer ── */
+#ar-video{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;z-index:0;background:#000;
+}
+
+/* ── Frozen frame (shown after capture) ── */
+#ar-frozen{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;z-index:0;display:none;
+}
+
+/* ── Three.js canvas overlay ── */
+#ar-canvas{
+  position:absolute;inset:0;width:100%;height:100%;
+  z-index:1;pointer-events:none;
+}
+#ar-canvas.interactive{pointer-events:auto;}
+
+/* ── Top bar ── */
+#ar-topbar{
+  position:relative;z-index:10;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;
+  background:linear-gradient(to bottom,rgba(0,0,0,0.6),transparent);
+  pointer-events:none;
+}
+#ar-topbar button,#ar-topbar a{pointer-events:auto;}
+.tb-btn{
+  background:rgba(255,255,255,0.15);border:none;border-radius:50%;
+  width:40px;height:40px;color:#fff;font-size:18px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);min-width:44px;min-height:44px;
+}
+#ar-title{color:#fff;font-size:15px;font-weight:700;letter-spacing:.5px;}
+#ar-mode-toggle{
+  background:rgba(124,58,237,0.85);border:none;border-radius:20px;
+  padding:6px 14px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;
+  display:none;min-height:44px;
+}
+#ar-mode-toggle.active{background:#10b981;}
+
+/* ── Viewport (flex-1) ── */
 #ar-viewport{position:relative;flex:1;overflow:hidden;}
-#cam-indicator{display:flex;align-items:center;gap:6px;font-size:13px;color:#94a3b8;}
-#cam-dot{width:10px;height:10px;border-radius:50%;background:#ef4444;transition:background .3s;}
-#cam-dot.active{background:#10b981;animation:pulse-dot 1.5s infinite;}
-@keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:.4;}}
-#guidance-banner{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:12;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600;background:rgba(13,13,26,0.9);border:1px solid #334155;color:#e2e8f0;white-space:nowrap;transition:opacity .4s;pointer-events:none;}
-#furniture-panel{position:absolute;right:0;top:0;bottom:0;width:180px;z-index:11;background:rgba(26,26,46,0.95);border-left:1px solid #1e293b;padding:12px;overflow-y:auto;transform:translateX(100%);transition:transform .3s;}
-#furniture-panel.open{transform:translateX(0);}
-#furniture-panel h4{color:#818cf8;font-size:13px;margin-bottom:10px;}
-.furn-check{display:flex;align-items:center;gap:8px;padding:6px 0;color:#cbd5e1;font-size:13px;cursor:pointer;border-bottom:1px solid #1e293b;}
-.furn-check input{accent-color:#7c3aed;}
-#capture-btn{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);border:3px solid #fff;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(124,58,237,.5);transition:transform .15s;}
-#capture-btn:active{transform:scale(.92);}
-#gyro-btn,#furn-toggle-btn{background:rgba(255,255,255,.1);border:1px solid #334155;color:#e2e8f0;border-radius:10px;padding:8px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;}
-#gyro-btn.active{background:rgba(124,58,237,.3);border-color:#7c3aed;color:#a78bfa;}
-#capture-overlay{position:absolute;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.75);}
-#capture-overlay.show{display:flex;}
-#capture-frame{width:90%;max-width:480px;border-radius:16px;overflow:hidden;border:3px solid #334155;}
-#capture-frame img{width:100%;display:block;}
-#capture-actions{margin-top:16px;display:flex;gap:12px;}
-.cap-btn{padding:10px 24px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;}
-.cap-btn-retake{background:#334155;color:#e2e8f0;}
-.cap-btn-primary{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;}
-.cap-btn-danger{background:#ef4444;color:#fff;}
-#capture-msg{color:#e2e8f0;font-size:15px;font-weight:600;margin-top:12px;text-align:center;}
-#error-banner{position:absolute;top:0;left:0;right:0;z-index:30;background:#ef4444;color:#fff;padding:12px 16px;font-size:14px;display:none;align-items:center;justify-content:space-between;}
-#error-banner.show{display:flex;}
-#bottom-sheet{position:absolute;bottom:0;left:0;right:0;z-index:15;background:#1a1a2e;border-top:2px solid #7c3aed;border-radius:20px 20px 0 0;padding:16px;transform:translateY(100%);transition:transform .35s;max-height:45%;}
-#bottom-sheet.open{transform:translateY(0);}
-#bottom-sheet h4{color:#818cf8;font-size:14px;margin-bottom:10px;}
-.bs-colors{display:flex;gap:8px;margin-bottom:10px;}
-.bs-swatch{width:24px;height:24px;border-radius:50%;border:2px solid #334155;}
-.bs-furniture{display:grid;gap:6px;}
-.bs-item{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#0f172a;border-radius:8px;font-size:13px;color:#cbd5e1;}
-.bs-price{color:#10b981;font-weight:700;}
-.bs-actions{display:flex;gap:8px;margin-top:12px;}
-.bs-btn{flex:1;padding:8px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;}
-.bs-btn-outline{background:transparent;border:1px solid #7c3aed;color:#a78bfa;}
-.bs-btn-primary{background:#7c3aed;color:#fff;}
-#loading-overlay{position:absolute;inset:0;z-index:25;background:rgba(13,13,26,.85);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#e2e8f0;font-size:15px;}
-#loading-overlay.show{display:flex;}
-.spinner{width:40px;height:40px;border:3px solid #334155;border-top-color:#7c3aed;border-radius:50%;animation:spin .8s linear infinite;}
+
+/* ── Bottom bar ── */
+#ar-bottombar{
+  position:relative;z-index:10;
+  display:flex;align-items:center;justify-content:center;gap:24px;
+  padding:20px 24px 28px;
+  background:linear-gradient(to top,rgba(0,0,0,0.65),transparent);
+}
+
+/* ── Capture button ── */
+#capture-btn{
+  width:72px;height:72px;border-radius:50%;
+  background:#7c3aed;border:4px solid #fff;
+  color:#fff;font-size:26px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 24px rgba(124,58,237,.6);
+  transition:transform .12s,box-shadow .12s;
+  flex-shrink:0;
+}
+#capture-btn:active{transform:scale(.9);box-shadow:0 2px 12px rgba(124,58,237,.4);}
+
+/* ── Post-capture action buttons ── */
+.action-btn{
+  background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);
+  color:#fff;border-radius:12px;padding:10px 20px;font-size:13px;font-weight:600;
+  cursor:pointer;backdrop-filter:blur(4px);min-height:44px;display:none;
+  transition:background .15s;
+}
+.action-btn:hover{background:rgba(255,255,255,0.25);}
+#enable-ar-btn{background:rgba(124,58,237,0.85);border-color:#7c3aed;}
+#enable-ar-btn:hover{background:#7c3aed;}
+
+/* ── Furniture selector panel ── */
+#furn-panel{
+  position:absolute;bottom:0;left:0;right:0;z-index:12;
+  background:rgba(26,26,46,0.95);border-top:1px solid #334155;
+  padding:12px 16px 20px;display:none;
+  backdrop-filter:blur(8px);
+}
+#furn-panel h4{color:#818cf8;font-size:12px;font-weight:700;margin:0 0 10px;text-transform:uppercase;letter-spacing:.8px;}
+#furn-grid{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;}
+.furn-btn{
+  flex-shrink:0;background:#0f172a;border:2px solid #334155;
+  border-radius:12px;padding:10px 14px;color:#e2e8f0;
+  font-size:12px;font-weight:600;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  min-width:70px;min-height:70px;transition:border-color .15s,background .15s;
+}
+.furn-btn:hover,.furn-btn.selected{border-color:#7c3aed;background:rgba(124,58,237,0.15);}
+.furn-btn i{font-size:20px;color:#818cf8;}
+
+/* ── Error banner ── */
+#ar-error{
+  position:absolute;inset:0;z-index:50;
+  background:#0d0d1a;display:none;
+  flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  padding:32px;text-align:center;
+}
+#ar-error.show{display:flex;}
+#ar-error i{font-size:3rem;color:#ef4444;}
+#ar-error p{color:#94a3b8;font-size:15px;line-height:1.6;max-width:280px;}
+#ar-error button{
+  background:#7c3aed;color:#fff;border:none;border-radius:10px;
+  padding:12px 28px;font-size:14px;font-weight:600;cursor:pointer;min-height:44px;
+}
+
+/* ── Guidance hint ── */
+#ar-hint{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:11;color:rgba(255,255,255,0.7);font-size:13px;
+  background:rgba(0,0,0,0.45);padding:8px 18px;border-radius:20px;
+  pointer-events:none;transition:opacity .4s;white-space:nowrap;
+}
+
+/* ── Loading spinner ── */
+#ar-loading{
+  position:absolute;inset:0;z-index:40;background:rgba(13,13,26,.8);
+  display:none;align-items:center;justify-content:center;
+}
+#ar-loading.show{display:flex;}
+.spin{width:44px;height:44px;border:3px solid #334155;border-top-color:#7c3aed;
+  border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── Analyse overlay ── */
+#analyse-overlay{
+  position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.75);
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+}
+#analyse-overlay.show{display:flex;}
+#analyse-overlay p{color:#e2e8f0;font-size:14px;}
+#analyse-overlay button{
+  background:#7c3aed;color:#fff;border:none;border-radius:10px;
+  padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;min-height:44px;
+}
+#analyse-overlay .sec-btn{background:transparent;border:1px solid #475569;color:#94a3b8;}
 </style>
 {% endblock %}
+
 {% block content %}
 <div id="ar-root">
+
+  <!-- Top bar -->
   <div id="ar-topbar">
-    <a href="/" style="color:#94a3b8;text-decoration:none;font-size:20px;"><i class="fas fa-arrow-left"></i></a>
-    <span style="font-weight:700;color:#e2e8f0;font-size:15px;">AR Room View</span>
-    <button id="mirror-btn" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;" title="Mirror"><i class="fas fa-sliders"></i></button>
+    <a href="/" class="tb-btn" title="Back"><i class="fas fa-arrow-left"></i></a>
+    <span id="ar-title">AR Room View</span>
+    <button id="ar-mode-toggle" onclick="toggleARMode()">AR OFF</button>
   </div>
+
+  <!-- Viewport -->
   <div id="ar-viewport">
-    <div id="ar-wrapper">
-      <video id="camera-feed" autoplay playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"></video>
-    </div>
+    <!-- Live video -->
     <video id="ar-video" autoplay playsinline muted></video>
+    <!-- Frozen frame after capture -->
+    <img id="ar-frozen" src="" alt="captured room" />
+    <!-- Three.js canvas -->
     <canvas id="ar-canvas"></canvas>
-    <div id="cam-indicator"><div id="cam-dot"></div><span id="cam-label">Initialising...</span></div>
-    <div id="guidance-banner" style="opacity:0;">Checking room...</div>
-    <div id="furniture-panel">
-      <h4>Furniture</h4>
-      <div id="furn-list"></div>
-    </div>
-    <div id="error-banner">
-      <span id="error-msg">Camera access denied.</span>
-      <button onclick="retryCamera()" style="background:#fff;color:#ef4444;border:none;border-radius:6px;padding:4px 12px;font-size:13px;cursor:pointer;">Retry</button>
-    </div>
-    <div id="capture-overlay">
-      <div id="capture-frame"><img id="capture-img" src="" alt="capture"/></div>
-      <div id="capture-msg"></div>
-      <div id="capture-actions"></div>
-    </div>
-    <div id="bottom-sheet">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <h4 style="margin:0;">Last Analysis</h4>
-        <button onclick="closeBottomSheet()" style="background:transparent;border:none;color:#94a3b8;font-size:16px;cursor:pointer;">&#x2715;</button>
-      </div>
-      <div id="bs-room-type" style="color:#94a3b8;font-size:13px;margin-bottom:8px;"></div>
-      <div class="bs-colors" id="bs-colors"></div>
-      <div class="bs-furniture" id="bs-furniture"></div>
-      <div class="bs-actions">
-        <button class="bs-btn bs-btn-outline" onclick="window.location.href='/analyze'">View Full Analysis</button>
-        <button class="bs-btn bs-btn-primary" onclick="placeAIFurniture()">Place in AR</button>
+
+    <!-- Guidance hint -->
+    <div id="ar-hint">Point camera at your room</div>
+
+    <!-- Furniture panel -->
+    <div id="furn-panel">
+      <h4>Place Furniture</h4>
+      <div id="furn-grid">
+        <button class="furn-btn" data-type="sofa" onclick="selectFurniture('sofa')">
+          <i class="fas fa-couch"></i>Sofa
+        </button>
+        <button class="furn-btn" data-type="table" onclick="selectFurniture('table')">
+          <i class="fas fa-table"></i>Table
+        </button>
+        <button class="furn-btn" data-type="lamp" onclick="selectFurniture('lamp')">
+          <i class="fas fa-lightbulb"></i>Lamp
+        </button>
+        <button class="furn-btn" data-type="shelf" onclick="selectFurniture('shelf')">
+          <i class="fas fa-book-open"></i>Shelf
+        </button>
       </div>
     </div>
-    <div id="loading-overlay"><div class="spinner"></div><span>Analysing room...</span></div>
+
+    <!-- Analyse overlay (shown after capture) -->
+    <div id="analyse-overlay">
+      <p>Room captured! What would you like to do?</p>
+      <button onclick="sendToAnalyse()"><i class="fas fa-brain"></i> Analyse Room</button>
+      <button class="sec-btn" onclick="closeAnalyseOverlay()">Place Furniture</button>
+    </div>
+
+    <!-- Error screen -->
+    <div id="ar-error">
+      <i class="fas fa-camera-slash"></i>
+      <p id="ar-error-msg">Camera permission denied. Please allow camera access and try again.</p>
+      <button onclick="retryCamera()">Retry</button>
+    </div>
+
+    <!-- Loading -->
+    <div id="ar-loading"><div class="spin"></div></div>
   </div>
+
+  <!-- Bottom bar -->
   <div id="ar-bottombar">
-    <button id="gyro-btn" onclick="toggleGyro()"><i class="fas fa-mobile-alt"></i> Gyro</button>
-    <button id="capture-btn" onclick="captureFrame()"><i class="fas fa-camera"></i></button>
-    <button id="furn-toggle-btn" onclick="toggleFurnPanel()"><i class="fas fa-couch"></i> Furniture</button>
+    <button class="action-btn" id="retake-btn" onclick="retakePhoto()">
+      <i class="fas fa-redo"></i> Retake
+    </button>
+    <button id="capture-btn" onclick="capturePhoto()">
+      <i class="fas fa-camera"></i>
+    </button>
+    <button class="action-btn" id="enable-ar-btn" onclick="enableAR()">
+      <i class="fas fa-cube"></i> Enable AR
+    </button>
   </div>
+
 </div>
 {% endblock %}
+
 {% block scripts %}
-<script>
-// ── State ──────────────────────────────────────────────────────────────────
-const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-let stream = null, gyroOn = false, furnPanelOpen = false;
-let isDragging = false, lastX = 0, lastY = 0;
-let lastPinchDist = 0;
-let capturedDataUrl = null;
-let guidanceTimer = null;
-let guidanceInterval = null;
-let mirrorMode = false;
-
-// ── Three.js ───────────────────────────────────────────────────────────────
-const video   = document.getElementById('ar-video');
-const canvas  = document.getElementById('ar-canvas');
-const vp      = document.getElementById('ar-viewport');
-
-const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: !isMobile });
-renderer.setClearColor(0x000000, 0);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-const scene  = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
-camera.position.set(0, 1.5, 4);
-
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-const ptLight = new THREE.PointLight(0xffffff, 1, 20);
-ptLight.position.set(2, 4, 2);
-scene.add(ptLight);
-
-// ── Default furniture meshes ───────────────────────────────────────────────
-const FURN_DEFS = [
-  { id:'sofa',  label:'Sofa',         w:2.0, h:0.8, d:0.9, color:0x7c3aed, x:-1.5, y:0.4, z:0   },
-  { id:'table', label:'Coffee Table', w:1.2, h:0.45,d:0.7, color:0x92400e, x:0,    y:0.22,z:0   },
-  { id:'lamp',  label:'Floor Lamp',   w:0.2, h:1.8, d:0.2, color:0xfbbf24, x:1.8,  y:0.9, z:0   },
-  { id:'shelf', label:'Bookshelf',    w:0.4, h:2.0, d:1.2, color:0x059669, x:-2.8, y:1.0, z:-1  },
-  { id:'chair', label:'Chair',        w:0.7, h:0.9, d:0.7, color:0x2563eb, x:1.2,  y:0.45,z:0.8 },
-];
-
-const meshMap = {};
-
-function makeLabelSprite(text) {
-  const c = document.createElement('canvas');
-  c.width = 256; c.height = 64;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = 'rgba(13,13,26,0.85)';
-  roundRect(ctx, 0, 0, 256, 64, 12);
-  ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 28px Segoe UI';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, 128, 32);
-  const tex = new THREE.CanvasTexture(c);
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(1.2, 0.3, 1);
-  return sprite;
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x+r, y);
-  ctx.lineTo(x+w-r, y);
-  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
-  ctx.lineTo(x+w, y+h-r);
-  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
-  ctx.lineTo(x+r, y+h);
-  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
-  ctx.lineTo(x, y+r);
-  ctx.quadraticCurveTo(x, y, x+r, y);
-  ctx.closePath();
-}
-
-function buildDefaultMeshes() {
-  FURN_DEFS.forEach(f => {
-    const geo = new THREE.BoxGeometry(f.w, f.h, f.d, 1, 1, 1);
-    const mat = new THREE.MeshPhongMaterial({ color: f.color, transparent: true, opacity: 0.65 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(f.x, f.y, f.z);
-    scene.add(mesh);
-    const sprite = makeLabelSprite(f.label);
-    sprite.position.set(f.x, f.y + f.h / 2 + 0.25, f.z);
-    scene.add(sprite);
-    meshMap[f.id] = { mesh, sprite, visible: true };
-  });
-}
-
-function clearMeshes() {
-  Object.values(meshMap).forEach(({ mesh, sprite }) => {
-    scene.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose();
-    scene.remove(sprite); sprite.material.map.dispose(); sprite.material.dispose();
-  });
-  for (const k in meshMap) delete meshMap[k];
-}
-
-// ── Furniture panel ────────────────────────────────────────────────────────
-function buildFurnPanel() {
-  const list = document.getElementById('furn-list');
-  list.innerHTML = FURN_DEFS.map(f => `
-    <label class="furn-check">
-      <input type="checkbox" checked data-id="${f.id}" onchange="toggleMesh('${f.id}',this.checked)">
-      ${f.label}
-    </label>`).join('');
-}
-
-function toggleMesh(id, visible) {
-  if (!meshMap[id]) return;
-  meshMap[id].mesh.visible = visible;
-  meshMap[id].sprite.visible = visible;
-  meshMap[id].visible = visible;
-}
-
-function toggleFurnPanel() {
-  furnPanelOpen = !furnPanelOpen;
-  document.getElementById('furniture-panel').classList.toggle('open', furnPanelOpen);
-}
-
-// ── Camera init ────────────────────────────────────────────────────────────
-async function initCamera() {
-  const dot   = document.getElementById('cam-dot');
-  const label = document.getElementById('cam-label');
-  try {
-    const constraints = {
-      video: isMobile
-        ? { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-        : { width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false
-    };
-    try {
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-    } catch (_) {
-      // fallback: drop exact constraint
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-    }
-    video.srcObject = stream;
-    video.onloadedmetadata = () => {
-      video.play();
-      resizeAll();
-      dot.classList.add('active');
-      label.textContent = 'Camera Active';
-      startGuidance();
-    };
-  } catch (err) {
-    dot.style.background = '#ef4444';
-    label.textContent = 'Camera denied';
-    const eb = document.getElementById('error-banner');
-    document.getElementById('error-msg').textContent =
-      err.name === 'NotAllowedError' ? 'Camera permission denied. Tap Retry.' : 'Camera unavailable.';
-    eb.classList.add('show');
-  }
-}
-
-function retryCamera() {
-  document.getElementById('error-banner').classList.remove('show');
-  initCamera();
-}
-
-// ── Resize ─────────────────────────────────────────────────────────────────
-function resizeAll() {
-  const w = vp.clientWidth, h = vp.clientHeight;
-  renderer.setSize(w, h);
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-}
-window.addEventListener('resize', resizeAll);
-
-// ── Render loop ────────────────────────────────────────────────────────────
-function animate() {
-  requestAnimationFrame(animate);
-  renderer.render(scene, camera);
-}
-
-// ── Gyroscope ─────────────────────────────────────────────────────────────
-function handleGyro(e) {
-  if (!gyroOn) return;
-  const beta  = THREE.MathUtils.degToRad((e.beta  || 0) - 90);
-  const gamma = THREE.MathUtils.degToRad(e.gamma || 0);
-  camera.rotation.x = THREE.MathUtils.clamp(beta,  -Math.PI/2, Math.PI/2);
-  camera.rotation.y = THREE.MathUtils.clamp(gamma, -Math.PI/2, Math.PI/2);
-}
-
-async function toggleGyro() {
-  const btn = document.getElementById('gyro-btn');
-  if (gyroOn) {
-    gyroOn = false;
-    window.removeEventListener('deviceorientation', handleGyro);
-    btn.classList.remove('active');
-    return;
-  }
-  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    try { await DeviceOrientationEvent.requestPermission(); } catch (_) { return; }
-  }
-  gyroOn = true;
-  window.addEventListener('deviceorientation', handleGyro);
-  btn.classList.add('active');
-}
-
-// ── Drag / touch rotate ────────────────────────────────────────────────────
-canvas.style.pointerEvents = 'auto';
-
-canvas.addEventListener('mousedown', e => { if (gyroOn) return; isDragging = true; lastX = e.clientX; lastY = e.clientY; });
-window.addEventListener('mouseup',   () => isDragging = false);
-window.addEventListener('mousemove', e => {
-  if (!isDragging || gyroOn) return;
-  camera.rotation.y += (e.clientX - lastX) * 0.005;
-  camera.rotation.x += (e.clientY - lastY) * 0.003;
-  camera.rotation.x = THREE.MathUtils.clamp(camera.rotation.x, -Math.PI/3, Math.PI/3);
-  lastX = e.clientX; lastY = e.clientY;
-});
-
-canvas.addEventListener('touchstart', e => {
-  if (gyroOn) return;
-  if (e.touches.length === 1) { isDragging = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; }
-  if (e.touches.length === 2) { lastPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
-}, { passive: true });
-
-canvas.addEventListener('touchend', () => isDragging = false, { passive: true });
-
-canvas.addEventListener('touchmove', e => {
-  if (gyroOn) return;
-  if (e.touches.length === 1 && isDragging) {
-    camera.rotation.y += (e.touches[0].clientX - lastX) * 0.005;
-    camera.rotation.x += (e.touches[0].clientY - lastY) * 0.003;
-    camera.rotation.x = THREE.MathUtils.clamp(camera.rotation.x, -Math.PI/3, Math.PI/3);
-    lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
-  }
-  if (e.touches.length === 2) {
-    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-    camera.fov = THREE.MathUtils.clamp(camera.fov + (lastPinchDist - d) * 0.1, 30, 90);
-    camera.updateProjectionMatrix();
-    lastPinchDist = d;
-  }
-}, { passive: true });
-
-// ── Room guidance ──────────────────────────────────────────────────────────
-const guidanceCanvas = document.createElement('canvas');
-guidanceCanvas.width = 64; guidanceCanvas.height = 36;
-const guidanceCtx = guidanceCanvas.getContext('2d');
-
-function analyseFrame() {
-  if (!video.videoWidth) return null;
-  guidanceCtx.drawImage(video, 0, 0, 64, 36);
-  const data = guidanceCtx.getImageData(0, 0, 64, 36).data;
-  let sum = 0, vals = [];
-  for (let i = 0; i < data.length; i += 4) {
-    const lum = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114);
-    sum += lum; vals.push(lum);
-  }
-  const mean = sum / vals.length;
-  const variance = vals.reduce((a, v) => a + (v - mean) ** 2, 0) / vals.length;
-  return { brightness: mean, variance };
-}
-
-function showGuidance(msg, color) {
-  const el = document.getElementById('guidance-banner');
-  el.textContent = msg;
-  el.style.borderColor = color;
-  el.style.color = color;
-  el.style.opacity = '1';
-  clearTimeout(guidanceTimer);
-  guidanceTimer = setTimeout(() => { el.style.opacity = '0'; }, 4000);
-}
-
-function startGuidance() {
-  guidanceInterval = setInterval(() => {
-    const r = analyseFrame();
-    if (!r) return;
-    if (r.brightness < 60)       showGuidance('Too dark — move to better lighting', '#ef4444');
-    else if (r.brightness > 220) showGuidance('Too bright — reduce glare', '#f59e0b');
-    else if (r.variance < 800)   showGuidance('Not enough detail — point at room', '#f59e0b');
-    else                         showGuidance('Room looks good ✓', '#10b981');
-  }, 2000);
-}
-
-function validateCapture() {
-  const r = analyseFrame();
-  if (!r) return { valid: false, msg: 'Camera not ready.' };
-  if (r.brightness < 60)       return { valid: false, msg: 'Too dark. Improve lighting and retake.' };
-  if (r.brightness > 220)      return { valid: false, msg: 'Too bright. Reduce glare and retake.' };
-  if (r.variance < 800)        return { valid: false, msg: 'Not enough room detail. Point at your room.' };
-  return { valid: true, msg: 'Room captured!' };
-}
-
-// ── Capture ────────────────────────────────────────────────────────────────
-function captureFrame() {
-  if (!video.videoWidth) return;
-  const cap = document.createElement('canvas');
-  cap.width = video.videoWidth; cap.height = video.videoHeight;
-  const ctx = cap.getContext('2d');
-  if (mirrorMode) { ctx.translate(cap.width, 0); ctx.scale(-1, 1); }
-  ctx.drawImage(video, 0, 0);
-  capturedDataUrl = cap.toDataURL('image/jpeg', 0.85);
-
-  const { valid, msg } = validateCapture();
-  const overlay = document.getElementById('capture-overlay');
-  document.getElementById('capture-img').src = capturedDataUrl;
-  document.getElementById('capture-msg').textContent = msg;
-  document.getElementById('capture-frame').style.borderColor = valid ? '#10b981' : '#ef4444';
-
-  const actions = document.getElementById('capture-actions');
-  if (valid) {
-    actions.innerHTML = `
-      <button class="cap-btn cap-btn-retake" onclick="closeCapture()">Retake</button>
-      <button class="cap-btn cap-btn-primary" onclick="analyseRoom()">Analyse Room</button>`;
-  } else {
-    actions.innerHTML = `
-      <button class="cap-btn cap-btn-retake" onclick="closeCapture()">Retake</button>
-      <button class="cap-btn cap-btn-danger" onclick="analyseRoom()">Use Anyway</button>`;
-  }
-  overlay.classList.add('show');
-}
-
-function closeCapture() {
-  document.getElementById('capture-overlay').classList.remove('show');
-}
-
-// ── Analyse room ───────────────────────────────────────────────────────────
-async function analyseRoom() {
-  closeCapture();
-  document.getElementById('loading-overlay').classList.add('show');
-  try {
-    const blob = await (await fetch(capturedDataUrl)).blob();
-    const fd = new FormData();
-    fd.append('image', blob, 'room-capture.jpg');
-    const res = await fetch('/analyze-room', { method: 'POST', body: fd });
-    const data = await res.json();
-    document.getElementById('loading-overlay').classList.remove('show');
-    if (!res.ok || data.error) {
-      showGuidance(data.error || 'Please capture a proper room interior', '#ef4444');
-      return;
-    }
-    sessionStorage.setItem('lastAnalysis', JSON.stringify(data));
-    window.location.href = '/analyze';
-  } catch (_) {
-    document.getElementById('loading-overlay').classList.remove('show');
-    showGuidance('Analysis failed. Check connection.', '#ef4444');
-  }
-}
-
-// ── Bottom sheet ───────────────────────────────────────────────────────────
-function loadBottomSheet() {
-  const raw = sessionStorage.getItem('lastAnalysis');
-  if (!raw) return;
-  try {
-    const data = JSON.parse(raw);
-    document.getElementById('bs-room-type').textContent = 'Room: ' + (data.room_type || data.style || 'Unknown');
-    const colors = data.colors || data.detected_colors || [];
-    document.getElementById('bs-colors').innerHTML = colors.slice(0,3).map(c => `<div class="bs-swatch" style="background:${c}"></div>`).join('');
-    const suggestions = data.furniture_suggestions || [];
-    document.getElementById('bs-furniture').innerHTML = suggestions.slice(0,3).map(f =>
-      `<div class="bs-item"><span>${f.name}</span><span class="bs-price">&#8377;${Number(f.price_inr||0).toLocaleString('en-IN')}</span></div>`
-    ).join('');
-    document.getElementById('bottom-sheet').classList.add('open');
-  } catch (_) {}
-}
-
-function closeBottomSheet() {
-  document.getElementById('bottom-sheet').classList.remove('open');
-}
-
-// ── Place AI furniture ─────────────────────────────────────────────────────
-const FURN_DIMS = {
-  sofa:  { w:2.0, h:0.8, d:0.9, color:0x7c3aed },
-  table: { w:1.2, h:0.45,d:0.7, color:0x92400e },
-  chair: { w:0.7, h:0.9, d:0.7, color:0x2563eb },
-  lamp:  { w:0.2, h:1.8, d:0.2, color:0xfbbf24 },
-  shelf: { w:0.4, h:2.0, d:1.2, color:0x059669 },
-};
-
-function placeAIFurniture() {
-  closeBottomSheet();
-  const raw = sessionStorage.getItem('lastAnalysis');
-  if (!raw) return;
-  try {
-    const data = JSON.parse(raw);
-    const suggestions = data.furniture_suggestions || [];
-    clearMeshes();
-    suggestions.slice(0, 5).forEach((f, i) => {
-      const key = Object.keys(FURN_DIMS).find(k => f.name.toLowerCase().includes(k)) || 'chair';
-      const d = FURN_DIMS[key];
-      const geo = new THREE.BoxGeometry(d.w, d.h, d.d, 1, 1, 1);
-      const mat = new THREE.MeshPhongMaterial({ color: d.color, transparent: true, opacity: 0.65 });
-      const mesh = new THREE.Mesh(geo, mat);
-      const angle = (i / suggestions.length) * Math.PI * 2;
-      mesh.position.set(Math.cos(angle) * 2, d.h / 2, Math.sin(angle) * 2);
-      scene.add(mesh);
-      const sprite = makeLabelSprite(f.name);
-      sprite.position.set(mesh.position.x, mesh.position.y + d.h / 2 + 0.25, mesh.position.z);
-      scene.add(sprite);
-      meshMap[f.name] = { mesh, sprite, visible: true };
-    });
-  } catch (_) {}
-}
-
-// ── Mirror toggle ──────────────────────────────────────────────────────────
-document.getElementById('mirror-btn').addEventListener('click', () => {
-  mirrorMode = !mirrorMode;
-  video.style.transform = mirrorMode ? 'scaleX(-1)' : '';
-});
-
-// ── Init ───────────────────────────────────────────────────────────────────
-buildDefaultMeshes();
-buildFurnPanel();
-resizeAll();
-animate();
-initCamera();
-loadBottomSheet();
-
-window.addEventListener('beforeunload', () => {
-  if (stream) stream.getTracks().forEach(t => t.stop());
-  clearInterval(guidanceInterval);
-});
-</script>
+<script src="/static/js/camera.js"></script>
 {% endblock %}
