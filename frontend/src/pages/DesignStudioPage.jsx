@@ -214,13 +214,23 @@ export default function DesignStudioPage() {
 
           {activeTab === 'view3d' && (
             <div className="view3d-grid fade-in">
-              <Link to="/live-ar" className="card" style={{ textDecoration: 'none', color: 'var(--text)' }}>
-                <i className="fas fa-camera" style={{ color: 'var(--accent-soft)' }}></i>
-                <h4 style={{ margin: '0.5rem 0' }}>AR Camera</h4>
-                <p style={{ color: 'var(--muted)' }}>Try placement overlays with live camera.</p>
+              <Link to="/live-ar" className="card view3d-card" style={{ textDecoration: 'none', color: 'var(--text)', cursor: 'pointer' }}>
+                <span style={{ background: 'linear-gradient(135deg,#ec4899,#f43f5e)', color: 'white', padding: '2px 8px', borderRadius: 20, fontSize: '0.7rem', fontWeight: 700, display: 'inline-block', marginBottom: '0.75rem' }}>Recommended</span>
+                <i className="fas fa-video" style={{ fontSize: '2.5rem', color: 'var(--accent-soft)', display: 'block', marginBottom: '0.75rem' }}></i>
+                <h4 style={{ margin: '0.5rem 0', fontWeight: 700 }}>Live AR Camera</h4>
+                <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Place furniture in your room with real-time camera.</p>
               </Link>
-              <div className="card"><i className="fas fa-cube" style={{ color: 'var(--accent-soft)' }}></i><h4 style={{ margin: '0.5rem 0' }}>3D Viewer</h4><p style={{ color: 'var(--muted)' }}>Interactive model view with room depth.</p></div>
-              <div className="card"><i className="fas fa-globe" style={{ color: 'var(--accent-soft)' }}></i><h4 style={{ margin: '0.5rem 0' }}>360 Preview</h4><p style={{ color: 'var(--muted)' }}>Walkthrough perspective preview.</p></div>
+              <Link to="/live-ar" className="card view3d-card" style={{ textDecoration: 'none', color: 'var(--text)', cursor: 'pointer' }}>
+                <span style={{ background: '#f59e0b', color: 'black', padding: '2px 8px', borderRadius: 20, fontSize: '0.7rem', fontWeight: 700, display: 'inline-block', marginBottom: '0.75rem' }}>Popular</span>
+                <i className="fas fa-cube" style={{ fontSize: '2.5rem', color: 'var(--accent-soft)', display: 'block', marginBottom: '0.75rem' }}></i>
+                <h4 style={{ margin: '0.5rem 0', fontWeight: 700 }}>3D Model Viewer</h4>
+                <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>View furniture in 3D from all angles.</p>
+              </Link>
+              <Link to="/live-ar" className="card view3d-card" style={{ textDecoration: 'none', color: 'var(--text)', cursor: 'pointer' }}>
+                <i className="fas fa-sync" style={{ fontSize: '2.5rem', color: 'var(--accent-soft)', display: 'block', marginBottom: '0.75rem', marginTop: '1.5rem' }}></i>
+                <h4 style={{ margin: '0.5rem 0', fontWeight: 700 }}>360° Preview</h4>
+                <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Interactive room panorama view.</p>
+              </Link>
             </div>
           )}
 
