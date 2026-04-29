@@ -254,6 +254,9 @@ def create_app(test_config=None):
     @app.route("/logout", methods=["GET", "POST"])
     def logout():
         session.clear()
+        # GET = browser visit → redirect to homepage
+        if request.method == "GET":
+            return redirect("/")
         return jsonify({"success": True, "message": "Logged out successfully."})
 
     @app.route("/design")
