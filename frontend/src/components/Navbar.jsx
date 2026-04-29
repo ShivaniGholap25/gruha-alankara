@@ -15,9 +15,6 @@ export default function Navbar() {
     { to: '/design', label: 'Design Studio' },
     { to: '/furniture', label: 'Furniture' },
     { to: '/catalog', label: 'My Catalog' },
-    { to: '/budget-calculator', label: 'Budget' },
-    { to: '/gallery', label: 'Gallery' },
-    { to: '/nearby-shops', label: 'Nearby Shops' },
   ];
 
   const isActive = (path) => location.pathname === path;
