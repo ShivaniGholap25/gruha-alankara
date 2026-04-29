@@ -286,11 +286,11 @@ def create_app(test_config=None):
 
     @app.route("/design")
     def design():
-        return render_template("design.html")
+        return _serve_react()
 
     @app.route("/analyze", methods=["GET"])
     def analyze():
-        return render_template("analyze.html")
+        return _serve_react()
 
     @app.route("/catalog", methods=["GET"])
     def catalog_page():
@@ -298,15 +298,15 @@ def create_app(test_config=None):
         if not user_id:
             flash("Please log in to view your catalog.", "error")
             return redirect(url_for("login"))
-        return render_template("catalog.html")
+        return _serve_react()
 
     @app.route("/furniture")
     def furniture_page():
-        return render_template("furniture.html")
+        return _serve_react()
 
     @app.route("/cart-page")
     def cart_page():
-        return render_template("cart.html")
+        return _serve_react()
 
     @app.route("/get-furniture")
     def get_furniture():
@@ -393,19 +393,19 @@ def create_app(test_config=None):
 
     @app.route("/live_ar", methods=["GET"])
     def live_ar():
-        return render_template("live_ar_camera.html")
+        return _serve_react()
 
     @app.route("/nearby-shops")
     def nearby_shops():
-        return render_template("nearby_shops.html")
+        return _serve_react()
 
     @app.route("/budget-calculator")
     def budget_calculator():
-        return render_template("budget_calculator.html")
+        return _serve_react()
 
     @app.route("/gallery")
     def gallery():
-        return render_template("gallery.html")
+        return _serve_react()
 
     @app.route("/dashboard")
     def dashboard():
@@ -416,7 +416,7 @@ def create_app(test_config=None):
         user = User.query.filter_by(id=user_id).first()
         designs = Design.query.filter_by(user_id=user_id).order_by(Design.created_at.desc()).all()
         bookings = Booking.query.filter_by(user_id=user_id).order_by(Booking.booking_date.desc()).all()
-        return render_template("dashboard.html", designs=designs, bookings=bookings, user=user)
+        return _serve_react()
 
     @app.route("/dashboard/stats", methods=["GET"])
     def dashboard_stats():
