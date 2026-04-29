@@ -85,13 +85,6 @@ export default function Navbar() {
                   >
                     <i className="fas fa-tachometer-alt"></i> Dashboard
                   </Link>
-                  <Link
-                    to="/my-bookings"
-                    className="nav-dropdown-item"
-                    onClick={() => { setDropdownOpen(false); setMenuOpen(false); }}
-                  >
-                    <i className="fas fa-calendar-check"></i> My Bookings
-                  </Link>
                   <div className="nav-dropdown-divider" />
                   <button className="nav-dropdown-item danger" onClick={handleLogout}>
                     <i className="fas fa-sign-out-alt"></i> Logout
