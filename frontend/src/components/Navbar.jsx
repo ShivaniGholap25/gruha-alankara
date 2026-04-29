@@ -13,7 +13,11 @@ export default function Navbar() {
     { to: '/', label: 'Home' },
     { to: '/analyze', label: 'Analyze Room' },
     { to: '/design', label: 'Design Studio' },
+    { to: '/furniture', label: 'Furniture' },
     { to: '/catalog', label: 'My Catalog' },
+    { to: '/budget-calculator', label: 'Budget' },
+    { to: '/gallery', label: 'Gallery' },
+    { to: '/nearby-shops', label: 'Nearby Shops' },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -61,6 +65,14 @@ export default function Navbar() {
                 onClick={() => setMenuOpen(false)}
               >
                 Dashboard
+              </Link>
+              <Link
+                to="/my-bookings"
+                className="btn btn-outline"
+                style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}
+                onClick={() => setMenuOpen(false)}
+              >
+                My Bookings
               </Link>
               <button className="nav-logout" onClick={handleLogout}>
                 Logout
