@@ -9,7 +9,7 @@ export default function MyBookingsPage() {
   useEffect(() => { loadBookings(); }, []);
 
   const loadBookings = async () => {
-    const res = await api.get('/my-bookings');
+    const res = await api.get('/api/my-bookings');
     setBookings(res.ok && Array.isArray(res.data) ? res.data : []);
     setLoading(false);
   };

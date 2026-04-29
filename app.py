@@ -263,7 +263,7 @@ def create_app(test_config=None):
     # ── All React page routes → serve SPA ────────────────────────────────
     for _react_path in [
         "/dashboard", "/design", "/analyze", "/catalog",
-        "/furniture", "/my-bookings", "/budget-calculator",
+        "/furniture", "/budget-calculator",
         "/gallery", "/nearby-shops", "/live-ar", "/cart-page",
     ]:
         app.add_url_rule(_react_path, endpoint=f"react_{_react_path.strip('/')}", view_func=_serve_react)
@@ -351,10 +351,6 @@ def create_app(test_config=None):
 
     @app.route("/catalog", methods=["GET"])
     def catalog_page():
-        user_id = session.get("user_id")
-        if not user_id:
-            flash("Please log in to view your catalog.", "error")
-            return redirect(url_for("login"))
         return _serve_react()
 
     @app.route("/furniture")
@@ -412,6 +408,10 @@ def create_app(test_config=None):
         return jsonify({"success": True, "booking_id": booking.id, "furniture_id": furniture.id, "status": "confirmed"})
 
     @app.route("/my-bookings")
+    def my_bookings_page():
+        return _serve_react()
+
+    @app.route("/api/my-bookings")
     def my_bookings():
         user_id = _get_user_id()
         if not user_id:
@@ -448,7 +448,7 @@ def create_app(test_config=None):
         db.session.commit()
         return jsonify({"success": True})
 
-    @app.route("/live_ar", methods=["GET"])
+    @app.route("/live-ar")
     def live_ar():
         return _serve_react()
 
@@ -466,13 +466,6 @@ def create_app(test_config=None):
 
     @app.route("/dashboard")
     def dashboard():
-        user_id = session.get("user_id")
-        if not user_id:
-            flash("Please log in to view your dashboard.", "error")
-            return redirect(url_for("login"))
-        user = User.query.filter_by(id=user_id).first()
-        designs = Design.query.filter_by(user_id=user_id).order_by(Design.created_at.desc()).all()
-        bookings = Booking.query.filter_by(user_id=user_id).order_by(Booking.booking_date.desc()).all()
         return _serve_react()
 
     @app.route("/dashboard/stats", methods=["GET"])
