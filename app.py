@@ -182,26 +182,34 @@ def create_app(test_config=None):
             return jsonify({"authenticated": False}), 401
         return jsonify({"authenticated": True, "user": {"id": user.id, "username": user.username, "email": user.email}})
 
-    @app.route("/")
-    def index():
-        # Serve React app if built, otherwise Jinja2 index
-        react_index = os.path.join(app.root_path, "static", "react", "index.html")
-        if os.path.exists(react_index):
-            return send_from_directory(os.path.join(app.root_path, "static", "react"), "index.html")
-        return render_template("index.html")
-
-    @app.route("/app", defaults={"path": ""})
-    @app.route("/app/<path:path>")
-    def serve_react(path):
-        """Serve React SPA for all frontend routes."""
+    def _serve_react():
+        """Serve React SPA index.html."""
         react_dir = os.path.join(app.root_path, "static", "react")
-        file_path = os.path.join(react_dir, path)
-        if path and os.path.exists(file_path):
-            return send_from_directory(react_dir, path)
         index_path = os.path.join(react_dir, "index.html")
         if os.path.exists(index_path):
             return send_from_directory(react_dir, "index.html")
         return render_template("index.html")
+
+    @app.route("/")
+    def index():
+        return _serve_react()
+
+    @app.route("/app", defaults={"path": ""})
+    @app.route("/app/<path:path>")
+    def serve_react(path):
+        react_dir = os.path.join(app.root_path, "static", "react")
+        file_path = os.path.join(react_dir, path)
+        if path and os.path.exists(file_path):
+            return send_from_directory(react_dir, path)
+        return _serve_react()
+
+    # ── All React page routes → serve SPA ────────────────────────────────
+    for _react_path in [
+        "/dashboard", "/design", "/analyze", "/catalog",
+        "/furniture", "/my-bookings", "/budget-calculator",
+        "/gallery", "/nearby-shops", "/live-ar", "/cart-page",
+    ]:
+        app.add_url_rule(_react_path, endpoint=f"react_{_react_path.strip('/')}", view_func=_serve_react)
 
     @app.route("/health")
     def health():
@@ -220,7 +228,7 @@ def create_app(test_config=None):
     @app.route("/register", methods=["GET", "POST"])
     def register():
         if request.method == "GET":
-            return render_template("register.html")
+            return _serve_react()
         payload = request.get_json(silent=True) or {}
         username = (payload.get("username") or request.form.get("username", "")).strip()
         email = (payload.get("email") or request.form.get("email", "")).strip().lower()
@@ -238,7 +246,7 @@ def create_app(test_config=None):
     @app.route("/login", methods=["GET", "POST"])
     def login():
         if request.method == "GET":
-            return render_template("login.html")
+            return _serve_react()
         data = request.get_json(silent=True) or request.form.to_dict()
         email = str(data.get("email", "")).strip().lower()
         password = str(data.get("password", ""))
