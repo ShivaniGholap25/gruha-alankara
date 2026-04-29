@@ -24,6 +24,7 @@ try:
 except Exception:
     from sqlalchemy.sql import text
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from ai_design import generate_design, analyze_room_image
 from buddy_agent import buddy_respond
@@ -41,6 +42,7 @@ def allowed_file(filename):
 
 def create_app(test_config=None):
     app = Flask(__name__)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
     app.config.from_object("config")
     if test_config:
         app.config.update(test_config)
@@ -72,11 +74,7 @@ def create_app(test_config=None):
 
     @app.route("/auth/google")
     def google_login():
-        # Always use the exact registered callback URL
-        callback = os.environ.get(
-            "GOOGLE_CALLBACK_URL",
-            "https://web-production-3fbd6.up.railway.app/auth/google/callback"
-        )
+        callback = url_for("google_callback", _external=True, _scheme="https")
         return google.authorize_redirect(callback)
 
     @app.route("/auth/google/callback")
