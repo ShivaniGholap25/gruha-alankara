@@ -82,7 +82,28 @@ class OrderItem(db.Model):
 	price        = db.Column(db.Integer)
 
 
+def _auto_seed():
+	"""Seed furniture catalog if empty — runs on every startup."""
+	if Furniture.query.count() > 0:
+		return
+	items = [
+		Furniture(name="Luxe Comfort Sofa",    category="sofa",  price=18500, image_url="", description="Three-seater fabric sofa."),
+		Furniture(name="Urban Corner Sofa",    category="sofa",  price=32000, image_url="", description="L-shaped sofa."),
+		Furniture(name="Sheesham Dining Table",category="table", price=27500, image_url="", description="Solid wood dining table."),
+		Furniture(name="Minimal Coffee Table", category="table", price=9500,  image_url="", description="Compact coffee table."),
+		Furniture(name="Nordic Accent Chair",  category="chair", price=7800,  image_url="", description="Single accent chair."),
+		Furniture(name="Ergo Lounge Chair",    category="chair", price=14200, image_url="", description="Curved lounge chair."),
+		Furniture(name="Pendant Glow Lamp",    category="lamp",  price=5600,  image_url="", description="Warm white hanging lamp."),
+		Furniture(name="Tripod Floor Lamp",    category="lamp",  price=11200, image_url="", description="Tall floor lamp."),
+		Furniture(name="Modular Wall Shelf",   category="shelf", price=8600,  image_url="", description="Floating shelf set."),
+		Furniture(name="Industrial Book Shelf",category="shelf", price=22800, image_url="", description="Metal and wood bookshelf."),
+	]
+	db.session.add_all(items)
+	db.session.commit()
+
+
 def init_db(app) -> None:
 	db.init_app(app)
 	with app.app_context():
 		db.create_all()
+		_auto_seed()
