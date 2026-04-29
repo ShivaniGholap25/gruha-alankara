@@ -184,6 +184,23 @@ def create_app(test_config=None):
 
     @app.route("/")
     def index():
+        # Serve React app if built, otherwise Jinja2 index
+        react_index = os.path.join(app.root_path, "static", "react", "index.html")
+        if os.path.exists(react_index):
+            return send_from_directory(os.path.join(app.root_path, "static", "react"), "index.html")
+        return render_template("index.html")
+
+    @app.route("/app", defaults={"path": ""})
+    @app.route("/app/<path:path>")
+    def serve_react(path):
+        """Serve React SPA for all frontend routes."""
+        react_dir = os.path.join(app.root_path, "static", "react")
+        file_path = os.path.join(react_dir, path)
+        if path and os.path.exists(file_path):
+            return send_from_directory(react_dir, path)
+        index_path = os.path.join(react_dir, "index.html")
+        if os.path.exists(index_path):
+            return send_from_directory(react_dir, "index.html")
         return render_template("index.html")
 
     @app.route("/health")
